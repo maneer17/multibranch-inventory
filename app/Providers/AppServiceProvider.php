@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Livewire\Synthesizers\NumberSynth;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use App\Models\TransferOrder;
@@ -9,6 +10,8 @@ use App\Policies\TransferOrderPolicy;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use App\Models\Product;
 use App\Observers\ProductObserver;
+use Livewire\Livewire;
+
 
 
 class AppServiceProvider extends ServiceProvider
@@ -35,5 +38,6 @@ class AppServiceProvider extends ServiceProvider
             //'purchase_order' => \App\Models\PurchaseOrder::class,
         ]);
         Product::observe(ProductObserver::class);
+        Livewire::propertySynthesizer(NumberSynth::class);
     }
 }
