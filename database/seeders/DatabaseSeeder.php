@@ -75,24 +75,61 @@ class DatabaseSeeder extends Seeder
                     continue;
                 }
 
+                $salePrice = (string) $faker->randomFloat(2, 2, 40);
+                $purchasePrice = (string) $faker->randomFloat(2, 1, 30);
+
                 BranchStock::create([
                     'branch_id' => $branch->id,
                     'product_id' => $product->id,
                     'quantity' => '0',
-                    'sale_price' => (string) $faker->randomFloat(2, 2, 40),
-                    'purchase_price' => (string) $faker->randomFloat(2, 1, 30),
+                    'sale_price' => $salePrice,
+                    'purchase_price' => $purchasePrice,
                     'reorder_point' => (string) $faker->randomFloat(3, 5, 20),
                     'reorder_qty' => (string) $faker->randomFloat(3, 20, 60),
                 ]);
+
+                $initialQty = random_int(30, 150);
 
                 $stockService->submit(
                     $product,
                     $branch,
                     $admin,
-                    new Number((string) random_int(30, 150)),
+                    new Number((string) $initialQty),
                     MovementType::InitialStockUpload,
                     note: 'Opening stock',
                 );
+
+                // --- Sales: random number of sales per branch-product pair,
+                // each freezing the sale_price at the moment of the sale,
+                // exactly as a real perpetual inventory system would ---
+                $saleCount = random_int(0, 8);
+
+                for ($i = 0; $i < $saleCount; $i++) {
+                    $saleQty = random_int(1, 5);
+
+                    // Re-fetch to get the current, real quantity after
+                    // previous sales in this loop may have reduced it.
+                    $currentStock = BranchStock::where('branch_id', $branch->id)
+                        ->where('product_id', $product->id)
+                        ->first();
+
+                    // Only sell if there's enough stock — the service would
+                    // throw anyway, but checking here avoids a noisy exception
+                    // during seeding that would halt the whole run.
+                    if ($currentStock->quantity->compare($saleQty) < 0) {
+                        break;
+                    }
+
+                    $stockService->submit(
+                        $product,
+                        $branch,
+                        $admin,
+                        new Number((string) $saleQty),
+                        MovementType::Sale,
+                        note: 'Regular sale',
+                        unitPrice: new Number($salePrice),
+                    );
+                }
             }
         }
 

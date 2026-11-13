@@ -8,8 +8,8 @@ use App\Models\BranchStock;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
-use BcMath\Number;
 use App\Models\TransferOrder;
+use BcMath\Number;
 use Illuminate\Support\Facades\DB;
 
 class StockMovementService
@@ -24,6 +24,7 @@ class StockMovementService
         MovementType $type,
         ?string $note = null,
         ?TransferOrder $transferOrder = null,
+        ?Number $unitPrice = null,
     ): StockMovement {
         if ($quantity->compare(0) <= 0) {
             throw new \InvalidArgumentException('Quantity must be greater than 0.');
@@ -37,14 +38,11 @@ class StockMovementService
             throw new \DomainException('No branch_stock row exists for this product at this branch.');
         }
 
-        // Normalize to the column's scale here, once, so every caller's
-        // input ends up consistent regardless of how many decimals they
-        // happened to pass — the service owns this, not the caller.
         $quantity = $quantity->round(self::SCALE);
         $signedQuantity = $type->isOutbound() ? $quantity->mul(-1) : $quantity;
 
         return DB::transaction(function () use (
-            $product, $branch, $user, $signedQuantity, $type, $note, $transferOrder
+            $product, $branch, $user, $signedQuantity, $type, $note, $transferOrder, $unitPrice
         ) {
             $branchStock = BranchStock::query()
                 ->where('branch_id', $branch->id)
@@ -52,7 +50,7 @@ class StockMovementService
                 ->lockForUpdate()
                 ->first();
 
-            if ($branchStock->quantity->add($signedQuantity) < 0) {
+            if ($branchStock->quantity->add($signedQuantity)->compare(0) < 0) {
                 throw new \DomainException('This movement would take stock below zero.');
             }
 
@@ -64,6 +62,7 @@ class StockMovementService
                 'note' => $note,
                 'created_by' => $user->id,
                 'transfer_order_id' => $transferOrder?->id,
+                'unit_price' => $unitPrice,
             ]);
 
             $branchStock->update([
