@@ -6,11 +6,13 @@ use App\Casts\AsDecimal;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Casts\Attribute;
+use BcMath\Number;
 use App\Enums\TransferStatus;
+use App\Models\TransferOrderItem;
 class BranchStock extends Model
 {
     use HasFactory;
+
     protected $table = 'branch_stock';
 
     protected $fillable = ['branch_id', 'product_id', 'quantity', 'sale_price', 'purchase_price', 'reorder_point', 'reorder_qty'];
@@ -35,17 +37,28 @@ class BranchStock extends Model
     {
         return $this->belongsTo(Product::class);
     }
-    // On BranchStock
-    protected function reservedQuantity(): Attribute
+
+    public function reservedQuantity(): Number
     {
-        return Attribute::make(
-            get: fn () => TransferOrderItem::query()
-                ->where('product_id', $this->product_id)
-                ->whereHas('transferOrder', function ($q) {
-                    $q->where('from_branch_id', $this->branch_id)
-                        ->whereIn('status', [TransferStatus::Requested, TransferStatus::Approved]);
-                })
-                ->sum('quantity_requested'),
-        );
+        $sum = TransferOrderItem::query()
+            ->where('product_id', $this->product_id)
+            ->whereHas('transferOrder', fn($q) => $q
+                ->where('from_branch_id', $this->branch_id)
+                ->whereIn('status', [
+                    TransferStatus::Requested->value,
+                    TransferStatus::Approved->value,
+                ]))
+            ->get()
+            ->reduce(
+                fn(Number $carry, TransferOrderItem $item) => $carry->add($item->quantity_requested),
+                new Number('0'),
+            );
+
+        return $sum;
+    }
+
+    public function available(): Number
+    {
+        return $this->quantity->sub($this->reservedQuantity());
     }
 }
