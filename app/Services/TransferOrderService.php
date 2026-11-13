@@ -78,8 +78,7 @@ class TransferOrderService
                     ->lockForUpdate()
                     ->first();
 
-                $reserved = $this->reservedQuantity($from->id, $line['product_id']);
-                $available = $sourceStock->quantity->sub($reserved);
+                $available = $sourceStock->available();
 
                 // Reject only when requested is strictly MORE than
                 // available — requesting exactly what's available is fine.
@@ -112,25 +111,6 @@ class TransferOrderService
      * (requested or approved) out of the given branch — computed fresh,
      * never stored, so it can't drift from the transfer rows themselves.
      */
-    private function reservedQuantity(int $branchId, int $productId): Number
-    {
-        $sum = TransferOrderItem::query()
-            ->where('product_id', $productId)
-            ->whereHas('transferOrder', function ($q) use ($branchId) {
-                $q->where('from_branch_id', $branchId)
-                    ->whereIn('status', [
-                        TransferStatus::Requested->value,
-                        TransferStatus::Approved->value,
-                    ]);
-            })
-            ->get()
-            ->reduce(
-                fn (Number $carry, TransferOrderItem $item) => $carry->add($item->quantity_requested),
-                new Number('0')
-            );
-
-        return $sum;
-    }
     public  function cancel(TransferOrder $order): TransferOrder{
         return $this->changeOrderStatus($order,TransferStatus::Cancelled);
     }

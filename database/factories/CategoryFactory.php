@@ -1,25 +1,27 @@
 <?php
+// database/factories/CategoryFactory.php
 
 namespace Database\Factories;
 
-use App\Models\Model\Category;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends Factory<odel=Category>
- */
 class CategoryFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
+        $categories = [
+            'Grains' => 'GRAIN',
+            'Dairy' => 'DAIRY',
+            'Beverages' => 'BEV',
+            'Produce' => 'PROD',
+            'Bakery' => 'BAKE',
+            'Cleaning Supplies' => 'CLEAN',
+        ];
+        $name = $this->faker->unique()->randomElement(array_keys($categories));
+
         return [
-            'name' => $this->faker->name(),
-            'code' => strtoupper($this->faker->unique()->lexify('????')),
+            'name' => $name,
+            'code' => $categories[$name],
             'last_sku_sequence' => 0,
         ];
     }

@@ -17,9 +17,10 @@ class StockMovement extends Model
     protected $casts = [
         'quantity' => AsDecimal::class,
         'type' => MovementType::class,
+        'unit_price' => AsDecimal::class
     ];
 
-    protected $fillable = ['product_id', 'quantity', 'created_by', 'type', 'branch_id', 'note', 'transfer_order_id'];
+    protected $fillable = ['product_id', 'quantity', 'created_by', 'type', 'branch_id', 'note', 'transfer_order_id', 'unit_price'];
 
     public function transferOrder(): BelongsTo
     {
