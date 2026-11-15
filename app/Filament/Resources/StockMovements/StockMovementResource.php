@@ -2,10 +2,7 @@
 
 namespace App\Filament\Resources\StockMovements;
 
-use App\Filament\Resources\StockMovements\Pages\CreateStockMovement;
-use App\Filament\Resources\StockMovements\Pages\EditStockMovement;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
-use App\Filament\Resources\StockMovements\Schemas\StockMovementForm;
 use App\Filament\Resources\StockMovements\Tables\StockMovementsTable;
 use App\Models\StockMovement;
 use BackedEnum;
@@ -18,25 +15,15 @@ class StockMovementResource extends Resource
 {
     protected static ?string $model = StockMovement::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static ?string $recordTitleAttribute = 'stockMovemnet';
+    protected static string|\UnitEnum|null $navigationGroup = 'Inventory';
 
-    public static function form(Schema $schema): Schema
-    {
-        return StockMovementForm::configure($schema);
-    }
+    protected static ?int $navigationSort = 4;
 
     public static function table(Table $table): Table
     {
         return StockMovementsTable::configure($table);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
     }
 
     public static function getPages(): array

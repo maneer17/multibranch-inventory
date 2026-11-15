@@ -19,6 +19,8 @@ class RevenueByBranch extends Page implements HasTable
     protected static ?string $navigationLabel = 'Revenue by Branch';
     protected static ?string $title = 'Revenue by Branch';
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
+    protected static string|\UnitEnum|null $navigationGroup = 'Reports';
+    protected static ?int $navigationSort = 0;
 
     protected string $view = 'filament.pages.revenue-by-branch';
 
@@ -41,14 +43,23 @@ class RevenueByBranch extends Page implements HasTable
             ", [MovementType::Sale->value]))->map(fn ($row) => (array) $row))
             ->columns([
                 TextColumn::make('branch_name')
-                    ->label('Branch'),
+                    ->label('Branch')
+                    ->weight('bold')
+                    ->icon(Heroicon::BuildingStorefront),
                 TextColumn::make('total_sales')
                     ->label('Sales Count')
-                    ->alignCenter(),
+                    ->alignCenter()
+                    ->badge()
+                    ->color('info'),
                 TextColumn::make('total_revenue')
                     ->label('Total Revenue')
                     ->money('USD')
-                    ->alignEnd(),
-            ]);
+                    ->alignEnd()
+                    ->weight('bold')
+                    ->color('success'),
+            ])
+            ->emptyStateHeading('No sales recorded yet')
+            ->emptyStateDescription('Revenue data will appear here once sales movements are logged.')
+            ->emptyStateIcon(Heroicon::OutlinedBanknotes);
     }
 }

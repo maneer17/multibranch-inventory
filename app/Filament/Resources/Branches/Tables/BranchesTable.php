@@ -15,9 +15,17 @@ class BranchesTable
     {
         return $table
             ->columns([
-                TextColumn::make('code')->searchable(),
-                TextColumn::make('name')->sortable()->searchable(),
-                TextColumn::make('city')->sortable()->searchable(),
+                TextColumn::make('code')
+                    ->searchable()
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('name')
+                    ->sortable()
+                    ->searchable()
+                    ->weight('bold'),
+                TextColumn::make('city')
+                    ->sortable()
+                    ->searchable(),
                 IconColumn::make('is_active')->boolean(),
             ])
             ->recordActions([
