@@ -14,9 +14,9 @@ class CategoriesTable
     {
         return $table
             ->columns([
-                TextColumn::make('code')->searchable(),
-                TextColumn::make('name')->sortable()->searchable(),
-                TextColumn::make('last_sku_sequence')->label('Products so far'),
+                TextColumn::make('code')->label(__('inventory.field.code'))->searchable(),
+                TextColumn::make('name')->label(__('inventory.field.name'))->sortable()->searchable(),
+                TextColumn::make('last_sku_sequence')->label(__('inventory.field.products_so_far')),
             ])
             ->recordActions([
                 EditAction::make(),

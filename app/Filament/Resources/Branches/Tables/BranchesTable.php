@@ -16,17 +16,22 @@ class BranchesTable
         return $table
             ->columns([
                 TextColumn::make('code')
+                    ->label(__('inventory.field.code'))
                     ->searchable()
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('name')
+                    ->label(__('inventory.field.name'))
                     ->sortable()
                     ->searchable()
                     ->weight('bold'),
                 TextColumn::make('city')
+                    ->label(__('inventory.field.city'))
                     ->sortable()
                     ->searchable(),
-                IconColumn::make('is_active')->boolean(),
+                IconColumn::make('is_active')
+                    ->label(__('inventory.field.active'))
+                    ->boolean(),
             ])
             ->recordActions([
                 EditAction::make(),

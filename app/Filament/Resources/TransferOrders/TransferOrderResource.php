@@ -17,9 +17,22 @@ class TransferOrderResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Transfers';
-
     protected static ?int $navigationSort = 0;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.transfers');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('inventory.resource.transfer_order');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('inventory.resource.transfer_orders');
+    }
 
     public static function table(Table $table): Table
     {

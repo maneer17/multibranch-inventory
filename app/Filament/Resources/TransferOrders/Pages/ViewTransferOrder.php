@@ -25,48 +25,50 @@ class ViewTransferOrder extends ViewRecord
     {
         return $schema
             ->components([
-                Section::make('Transfer Details')
+                Section::make(__('inventory.transfer.details'))
                     ->icon(Heroicon::OutlinedTruck)
                     ->schema([
                         Grid::make(3)
                             ->schema([
                                 TextEntry::make('fromBranch.name')
-                                    ->label('From Branch')
+                                    ->label(__('inventory.field.from_branch'))
                                     ->icon(Heroicon::ArrowUpRight)
                                     ->color('warning'),
                                 TextEntry::make('toBranch.name')
-                                    ->label('To Branch')
+                                    ->label(__('inventory.field.to_branch'))
                                     ->icon(Heroicon::ArrowDownLeft)
                                     ->color('success'),
-                                TextEntry::make('status')->badge(),
+                                TextEntry::make('status')
+                                    ->label(__('inventory.field.status'))
+                                    ->badge(),
                             ]),
                         Grid::make(3)
                             ->schema([
-                                TextEntry::make('requester.name')->label('Requested By'),
-                                TextEntry::make('approver.name')->label('Approved By')->placeholder('—'),
-                                TextEntry::make('created_at')->since()->label('Requested')
+                                TextEntry::make('requester.name')->label(__('inventory.field.requested_by')),
+                                TextEntry::make('approver.name')->label(__('inventory.field.approved_by'))->placeholder('—'),
+                                TextEntry::make('created_at')->since()->label(__('inventory.transfer.requested'))
                                     ->helperText(fn ($record) => $record->created_at->format('M j, Y H:i')),
                             ]),
                     ]),
 
-                Section::make('Items')
+                Section::make(__('inventory.transfer.items'))
                     ->icon(Heroicon::OutlinedCube)
                     ->schema([
                         RepeatableEntry::make('items')
                             ->label('')
                             ->schema([
                                 TextEntry::make('product.name')
-                                    ->label('Product')
+                                    ->label(__('inventory.field.product'))
                                     ->weight('bold'),
                                 TextEntry::make('quantity_requested')
-                                    ->label('Requested')
+                                    ->label(__('inventory.transfer.requested'))
                                     ->color('primary'),
                                 TextEntry::make('quantity_sent')
-                                    ->label('Sent')
+                                    ->label(__('inventory.transfer.sent'))
                                     ->placeholder('—')
                                     ->color('warning'),
                                 TextEntry::make('quantity_received')
-                                    ->label('Received')
+                                    ->label(__('inventory.transfer.received'))
                                     ->placeholder('—')
                                     ->color('success'),
                             ])
@@ -79,16 +81,18 @@ class ViewTransferOrder extends ViewRecord
     {
         return [
             Action::make('approve')
+                ->label(__('inventory.transfer.approve'))
                 ->icon(Heroicon::CheckCircle)
                 ->color('success')
                 ->visible(fn () => auth()->user()->can('approve', $this->record)
                     && $this->record->status->canTransitionTo(TransferStatus::Approved))
                 ->action(function () {
                     app(TransferOrderService::class)->approve($this->record, auth()->user());
-                    Notification::make()->title('Transfer approved')->success()->send();
+                    Notification::make()->title(__('inventory.transfer.approved'))->success()->send();
                 }),
 
             Action::make('reject')
+                ->label(__('inventory.transfer.reject'))
                 ->icon(Heroicon::XCircle)
                 ->color('danger')
                 ->requiresConfirmation()
@@ -96,10 +100,11 @@ class ViewTransferOrder extends ViewRecord
                     && $this->record->status->canTransitionTo(TransferStatus::Rejected))
                 ->action(function () {
                     app(TransferOrderService::class)->reject($this->record);
-                    Notification::make()->title('Transfer rejected')->danger()->send();
+                    Notification::make()->title(__('inventory.transfer.rejected'))->danger()->send();
                 }),
 
             Action::make('cancel')
+                ->label(__('inventory.transfer.cancel'))
                 ->icon(Heroicon::NoSymbol)
                 ->color('gray')
                 ->requiresConfirmation()
@@ -107,10 +112,11 @@ class ViewTransferOrder extends ViewRecord
                     && $this->record->status->canTransitionTo(TransferStatus::Cancelled))
                 ->action(function () {
                     app(TransferOrderService::class)->cancel($this->record);
-                    Notification::make()->title('Transfer cancelled')->warning()->send();
+                    Notification::make()->title(__('inventory.transfer.cancelled'))->warning()->send();
                 }),
 
             Action::make('ship')
+                ->label(__('inventory.transfer.ship'))
                 ->icon(Heroicon::Truck)
                 ->color('warning')
                 ->visible(fn () => auth()->user()->can('ship', $this->record)
@@ -128,10 +134,11 @@ class ViewTransferOrder extends ViewRecord
                         ->all();
 
                     app(TransferOrderService::class)->ship($this->record, auth()->user(), $quantities);
-                    Notification::make()->title('Transfer shipped')->success()->send();
+                    Notification::make()->title(__('inventory.transfer.shipped'))->success()->send();
                 }),
 
             Action::make('receive')
+                ->label(__('inventory.transfer.receive'))
                 ->icon(Heroicon::InboxArrowDown)
                 ->color('success')
                 ->visible(fn () => auth()->user()->can('receive', $this->record)
@@ -149,7 +156,7 @@ class ViewTransferOrder extends ViewRecord
                         ->all();
 
                     app(TransferOrderService::class)->receive($this->record, auth()->user(), $quantities);
-                    Notification::make()->title('Transfer received')->success()->send();
+                    Notification::make()->title(__('inventory.transfer.received_notification'))->success()->send();
                 }),
         ];
     }
