@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class StockMovementService
 {
-    private const SCALE = 3;
+    public const SCALE = 3;
 
     public function submit(
         Product $product,
