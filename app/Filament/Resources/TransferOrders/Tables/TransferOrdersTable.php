@@ -2,12 +2,11 @@
 
 namespace App\Filament\Resources\TransferOrders\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use App\Enums\TransferStatus;
 use Filament\Actions\ViewAction;
-use Filament\Infolists\Components\TextEntry;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class TransferOrdersTable
@@ -15,28 +14,45 @@ class TransferOrdersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
-                //protected $fillable = ['from_branch_id', 'to_branch_id', 'requested_by', 'approved_by', 'status'];
-
-                TextColumn::make('fromBranch.name')->label('From Branch'),
-                TextColumn::make('toBranch.name')->label('To Branch'),
-                TextColumn::make('requester.name')->label('Requested By'),
-                TextColumn::make('approver.name')->label('Approved By'),
-                TextColumn::make('status')->badge(),
-                TextColumn::make('created_at')->label('Created At'),
-
+                TextColumn::make('fromBranch.name')
+                    ->label('From')
+                    ->icon(Heroicon::ArrowUpRight)
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('toBranch.name')
+                    ->label('To')
+                    ->icon(Heroicon::ArrowDownLeft)
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('requester.name')
+                    ->label('Requested By'),
+                TextColumn::make('approver.name')
+                    ->label('Approved By')
+                    ->placeholder('—'),
+                TextColumn::make('status')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('created_at')
+                    ->label('Created')
+                    ->since()
+                    ->sortable()
+                    ->description(fn ($record) => $record->created_at->format('M j, Y')),
             ])
             ->filters([
-                //
+                SelectFilter::make('status')
+                    ->options(TransferStatus::class)
+                    ->multiple(),
+                SelectFilter::make('from_branch_id')
+                    ->label('From Branch')
+                    ->relationship('fromBranch', 'name'),
+                SelectFilter::make('to_branch_id')
+                    ->label('To Branch')
+                    ->relationship('toBranch', 'name'),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->schema([
-
-                    ]),
-               // EditAction::make(),
-            ])
-            ->toolbarActions([
+                ViewAction::make(),
             ]);
     }
 }
