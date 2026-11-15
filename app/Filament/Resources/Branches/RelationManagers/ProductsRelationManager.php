@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Branches\RelationManagers;
 
 use App\Enums\MovementType;
+use App\Filament\Concerns\HasBranchStockPivotFields;
 use App\Models\Product;
 use App\Services\StockMovementService;
 use BcMath\Number;
@@ -15,48 +16,27 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 class ProductsRelationManager extends RelationManager
 {
+    use HasBranchStockPivotFields;
+
     protected static string $relationship = 'products';
 
     public function form(Schema $schema): Schema
     {
-        return $schema
-            ->components([
-                TextInput::make('sale_price')->required(),
-                TextInput::make('purchase_price')->required(),
-                TextInput::make('reorder_point'),
-                TextInput::make('reorder_qty'),
-            ]);
+        return $schema->components(self::pivotFormFields());
     }
 
     public function table(Table $table): Table
     {
         return $table
             ->recordTitleAttribute('name')
-            ->columns([
-                TextColumn::make('name')->label('Product')->searchable(),
-                TextColumn::make('pivot.quantity')->label('Quantity'),
-                TextColumn::make('pivot.sale_price')->label('Sale Price'),
-                TextColumn::make('pivot.purchase_price')->label('Purchase Price'),
-                TextColumn::make('pivot.reorder_point')->label('Reorder Point'),
-                TextColumn::make('pivot.reorder_qty')->label('Reorder Qty'),
-            ])
-            ->filters([
-                //
-            ])
+            ->columns(self::pivotColumns('Product'))
             ->headerActions([
                 AttachAction::make()
-                    ->schema(fn (AttachAction $action): array => [
-                        $action->getRecordSelect(),
-                        TextInput::make('sale_price')->required(),
-                        TextInput::make('purchase_price')->required(),
-                        TextInput::make('reorder_point'),
-                        TextInput::make('reorder_qty'),
-                    ]),
+                    ->schema(fn (AttachAction $action): array => self::pivotAttachFields($action)),
             ])
             ->recordActions([
                 EditAction::make(),
@@ -65,12 +45,7 @@ class ProductsRelationManager extends RelationManager
                     ->schema([
                         TextInput::make('quantity')->required()->numeric(),
                     ])
-                    // Pivot's "quantity" is a plain, uncast string here (not
-                    // a Number — the generic Pivot object skips AsDecimal).
-                    // bccomp still avoids a bare string comparison that
-                    // could be fooled by scale, e.g. '0' vs '0.000'.
-                    ->visible(fn (Product $record): bool => bccomp((string) $record->pivot->quantity, '0', 3) === 0
-                    )
+                    ->visible(fn (Product $record): bool => bccomp((string) $record->pivot->quantity, '0', 3) === 0)
                     ->action(function (array $data, Product $record) {
                         app(StockMovementService::class)->submit(
                             product: $record,

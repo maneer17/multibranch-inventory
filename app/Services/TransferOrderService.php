@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\DB;
 
 class TransferOrderService
 {
-    public function __construct(private StockMovementService $stockMovementService){
+    public function __construct(private StockMovementService $stockMovementService)
+    {
     }
-    private const SCALE = 3;
 
     /**
      * @param  array<int, array{product: \App\Models\Product, quantity: Number}>  $items
@@ -36,7 +36,7 @@ class TransferOrderService
 
         foreach ($items as $item) {
             $product = $item['product'];
-            $quantity = $item['quantity']->round(self::SCALE);
+            $quantity = $item['quantity']->round(StockMovementService::SCALE);
 
             if ($quantity->compare(0) <= 0) {
                 throw new \InvalidArgumentException('Quantity must be greater than 0.');
@@ -106,33 +106,35 @@ class TransferOrderService
         });
     }
 
-    /**
-     * Sum of quantity_requested across this product's open transfers
-     * (requested or approved) out of the given branch — computed fresh,
-     * never stored, so it can't drift from the transfer rows themselves.
-     */
-    public  function cancel(TransferOrder $order): TransferOrder{
-        return $this->changeOrderStatus($order,TransferStatus::Cancelled);
-    }
-
-    public function approve(TransferOrder $order,User $approver): TransferOrder
+    public function cancel(TransferOrder $order): TransferOrder
     {
-        return $this->changeOrderStatus($order,TransferStatus::Approved, $approver);
+        return $this->changeOrderStatus($order, TransferStatus::Cancelled);
     }
 
-    public function reject (TransferOrder $order): TransferOrder
+    public function approve(TransferOrder $order, User $approver): TransferOrder
     {
-        return $this->changeOrderStatus($order,TransferStatus::Rejected);
+        return $this->changeOrderStatus($order, TransferStatus::Approved, $approver);
     }
 
-    private function changeOrderStatus(TransferOrder $order,TransferStatus $status , ?User $approver=null): TransferOrder{
-        if(! $order->status->canTransitionTo($status)){
-            throw new \DomainException("you can't make this order status {$status->value}");
+    public function reject(TransferOrder $order): TransferOrder
+    {
+        return $this->changeOrderStatus($order, TransferStatus::Rejected);
+    }
+
+    private function changeOrderStatus(TransferOrder $order, TransferStatus $status, ?User $approver = null): TransferOrder
+    {
+        if (! $order->status->canTransitionTo($status)) {
+            throw new \DomainException("This order cannot transition to {$status->value}.");
         }
-        $order->update([
-            'status' => $status,
-            'approved_by' => $approver?->id,
-        ]);
+
+        $data = ['status' => $status];
+
+        if ($approver) {
+            $data['approved_by'] = $approver->id;
+        }
+
+        $order->update($data);
+
         return $order;
     }
 
@@ -176,7 +178,7 @@ class TransferOrderService
             foreach ($order->items as $item) {
                 // Defaults to what was sent — override only needed when what
                 // actually arrived differs (damage, loss in transit).
-                $receivedQty = ($receivedQuantities[$item->product_id] ?? $item->quantity_sent)->round(self::SCALE);
+                $receivedQty = ($receivedQuantities[$item->product_id] ?? $item->quantity_sent)->round(StockMovementService::SCALE);
 
                 $this->stockMovementService->submit(
                     $item->product,
