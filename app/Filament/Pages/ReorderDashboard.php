@@ -24,13 +24,25 @@ class ReorderDashboard extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationLabel = 'Reorder Suggestions';
-    protected static ?string $title = 'Reorder Suggestions';
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBellAlert;
-    protected static string|\UnitEnum|null $navigationGroup = 'Transfers';
     protected static ?int $navigationSort = 1;
 
     protected string $view = 'filament.pages.reorder-dashboard';
+
+    public static function getNavigationLabel(): string
+    {
+        return __('inventory.page.reorder_suggestions');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.transfers');
+    }
+
+    public function getTitle(): string
+    {
+        return __('inventory.page.reorder_suggestions');
+    }
 
     public function table(Table $table): Table
     {
@@ -38,45 +50,45 @@ class ReorderDashboard extends Page implements HasTable
             ->records(fn () => app(ReorderPointService::class)->suggestAllTransfers())
             ->columns([
                 TextColumn::make('product.name')
-                    ->label('Product')
+                    ->label(__('inventory.field.product'))
                     ->weight('bold')
                     ->searchable(),
                 TextColumn::make('to_branch.name')
-                    ->label('Needs Stock')
+                    ->label(__('inventory.reorder.needs_stock'))
                     ->icon(Heroicon::ArrowDown)
                     ->color('danger'),
                 TextColumn::make('from_branch.name')
-                    ->label('Source')
+                    ->label(__('inventory.reorder.source'))
                     ->icon(Heroicon::ArrowUp)
                     ->color('success'),
                 TextColumn::make('available')
-                    ->label('Current Stock')
+                    ->label(__('inventory.reorder.current_stock'))
                     ->formatStateUsing(fn ($state) => $state->value)
                     ->color('danger')
-                    ->description('Below reorder point'),
+                    ->description(__('inventory.reorder.below_reorder')),
                 TextColumn::make('reorder_point')
-                    ->label('Reorder Point')
+                    ->label(__('inventory.field.reorder_point'))
                     ->formatStateUsing(fn ($state) => $state->value)
                     ->color('warning'),
                 TextColumn::make('quantity')
-                    ->label('Suggested Qty')
+                    ->label(__('inventory.reorder.suggested_qty'))
                     ->formatStateUsing(fn ($state) => $state->value)
                     ->badge()
                     ->color('primary'),
             ])
             ->recordActions([
                 Action::make('createTransfer')
-                    ->label('Create Transfer')
+                    ->label(__('inventory.reorder.create_transfer'))
                     ->icon(Heroicon::PaperAirplane)
                     ->color('primary')
                     ->schema(fn (array $record) => [
                         Placeholder::make('summary')
-                            ->label('Transfer Summary')
+                            ->label(__('inventory.reorder.transfer_summary'))
                             ->content(
                                 "{$record['product']->name}: {$record['from_branch']->name} → {$record['to_branch']->name}"
                             ),
                         TextInput::make('quantity')
-                            ->label('Quantity to transfer')
+                            ->label(__('inventory.reorder.quantity_to_transfer'))
                             ->default(fn () => $record['quantity']->value)
                             ->numeric()
                             ->required()
@@ -96,13 +108,13 @@ class ReorderDashboard extends Page implements HasTable
                         );
 
                         Notification::make()
-                            ->title('Transfer request created')
+                            ->title(__('inventory.reorder.transfer_created'))
                             ->success()
                             ->send();
                     }),
             ])
-            ->emptyStateHeading('All branches are well stocked')
-            ->emptyStateDescription('No products are below their reorder point right now.')
+            ->emptyStateHeading(__('inventory.reorder.well_stocked'))
+            ->emptyStateDescription(__('inventory.reorder.well_stocked_desc'))
             ->emptyStateIcon(Heroicon::OutlinedCheckCircle);
     }
 }

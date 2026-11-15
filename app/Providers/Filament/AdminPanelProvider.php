@@ -36,11 +36,13 @@ class AdminPanelProvider extends PanelProvider
                 'warning' => Color::Amber,
                 'info' => Color::Sky,
             ])
-            ->navigationGroups([
-                NavigationGroup::make('Inventory'),
-                NavigationGroup::make('Transfers'),
-                NavigationGroup::make('Reports'),
-            ])
+            ->bootUsing(function (Panel $panel) {
+                $panel->navigationGroups([
+                    NavigationGroup::make(__('inventory.nav.inventory')),
+                    NavigationGroup::make(__('inventory.nav.transfers')),
+                    NavigationGroup::make(__('inventory.nav.reports')),
+                ]);
+            })
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -54,6 +56,7 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                \App\Http\Middleware\SetLocale::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,

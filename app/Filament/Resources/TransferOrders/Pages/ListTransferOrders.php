@@ -22,11 +22,11 @@ class ListTransferOrders extends ListRecords
     {
         return [
             Action::make('createRequest')
-                ->label('New Transfer Request')
+                ->label(__('inventory.transfer.new_request'))
                 ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'branch_manager', 'staff']))
                 ->schema([
                     Select::make('from_branch_id')
-                        ->label('From Branch')
+                        ->label(__('inventory.field.from_branch'))
                         ->options(fn () => auth()->user()->hasRole('admin')
                             ? Branch::pluck('name', 'id')
                             : Branch::where('id', auth()->user()->branch_id)->pluck('name', 'id'))
@@ -40,7 +40,7 @@ class ListTransferOrders extends ListRecords
                         ->live(),
 
                     Select::make('to_branch_id')
-                        ->label('To Branch')
+                        ->label(__('inventory.field.to_branch'))
                         ->options(fn (Get $get) => Branch::where('id', '!=', $get('from_branch_id'))
                             ->pluck('name', 'id'))
                         ->required(),
@@ -48,7 +48,7 @@ class ListTransferOrders extends ListRecords
                     Repeater::make('items')
                         ->schema([
                             Select::make('product_id')
-                                ->label('Product')
+                                ->label(__('inventory.field.product'))
                                 ->options(Product::pluck('name', 'id'))
                                 ->required()
                                 ->searchable(),

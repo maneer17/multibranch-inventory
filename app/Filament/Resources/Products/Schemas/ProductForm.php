@@ -14,20 +14,22 @@ class ProductForm
     {
         return $schema
             ->components([
-                TextInput::make('name')->required()->maxLength(255),
+                TextInput::make('name')->label(__('inventory.field.name'))->required()->maxLength(255),
                 Select::make('category_id')
+                    ->label(__('inventory.field.category'))
                     ->relationship('category', 'name')
                     ->required()
                     ->searchable(),
                 Select::make('unit')
+                    ->label(__('inventory.field.unit'))
                     ->options([
-                        'kg' => 'Kilograms',
-                        'pcs' => 'Pieces',
-                        'liters' => 'Liters',
-                        'meters' => 'Meters',
+                        'kg' => __('inventory.unit.kg'),
+                        'pcs' => __('inventory.unit.pcs'),
+                        'liters' => __('inventory.unit.liters'),
+                        'meters' => __('inventory.unit.meters'),
                     ])
                     ->required(),
-                Toggle::make('is_active')->default(true),
+                Toggle::make('is_active')->label(__('inventory.field.active'))->default(true),
             ]);
     }
 }

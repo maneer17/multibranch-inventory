@@ -11,10 +11,10 @@ trait HasBranchStockPivotFields
     protected static function pivotFormFields(): array
     {
         return [
-            TextInput::make('sale_price')->required(),
-            TextInput::make('purchase_price')->required(),
-            TextInput::make('reorder_point'),
-            TextInput::make('reorder_qty'),
+            TextInput::make('sale_price')->label(__('inventory.field.sale_price'))->required(),
+            TextInput::make('purchase_price')->label(__('inventory.field.purchase_price'))->required(),
+            TextInput::make('reorder_point')->label(__('inventory.field.reorder_point')),
+            TextInput::make('reorder_qty')->label(__('inventory.field.reorder_qty')),
         ];
     }
 
@@ -30,11 +30,11 @@ trait HasBranchStockPivotFields
     {
         return [
             TextColumn::make('name')->label($nameLabel)->searchable(),
-            TextColumn::make('pivot.quantity')->label('Quantity'),
-            TextColumn::make('pivot.sale_price')->label('Sale Price'),
-            TextColumn::make('pivot.purchase_price')->label('Purchase Price'),
-            TextColumn::make('pivot.reorder_point')->label('Reorder Point'),
-            TextColumn::make('pivot.reorder_qty')->label('Reorder Qty'),
+            TextColumn::make('pivot.quantity')->label(__('inventory.field.quantity')),
+            TextColumn::make('pivot.sale_price')->label(__('inventory.field.sale_price')),
+            TextColumn::make('pivot.purchase_price')->label(__('inventory.field.purchase_price')),
+            TextColumn::make('pivot.reorder_point')->label(__('inventory.field.reorder_point')),
+            TextColumn::make('pivot.reorder_qty')->label(__('inventory.field.reorder_qty')),
         ];
     }
 }

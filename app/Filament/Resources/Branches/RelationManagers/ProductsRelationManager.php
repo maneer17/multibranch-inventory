@@ -33,7 +33,7 @@ class ProductsRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('name')
-            ->columns(self::pivotColumns('Product'))
+            ->columns(self::pivotColumns(__('inventory.field.product')))
             ->headerActions([
                 AttachAction::make()
                     ->schema(fn (AttachAction $action): array => self::pivotAttachFields($action)),
@@ -41,7 +41,7 @@ class ProductsRelationManager extends RelationManager
             ->recordActions([
                 EditAction::make(),
                 Action::make('recordInitialStock')
-                    ->label('Record Initial Stock')
+                    ->label(__('inventory.relation.record_initial_stock'))
                     ->schema([
                         TextInput::make('quantity')->required()->numeric(),
                     ])

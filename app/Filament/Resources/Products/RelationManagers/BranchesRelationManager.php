@@ -33,7 +33,7 @@ class BranchesRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('name')
-            ->columns(self::pivotColumns('Branch'))
+            ->columns(self::pivotColumns(__('inventory.field.branch')))
             ->headerActions([
                 AttachAction::make()
                     ->schema(fn (AttachAction $action): array => self::pivotAttachFields($action)),
@@ -42,7 +42,7 @@ class BranchesRelationManager extends RelationManager
                 EditAction::make(),
                 DetachAction::make(),
                 Action::make('recordInitialStock')
-                    ->label('Record Initial Stock')
+                    ->label(__('inventory.relation.record_initial_stock'))
                     ->schema([
                         TextInput::make('quantity')->required()->numeric(),
                     ])

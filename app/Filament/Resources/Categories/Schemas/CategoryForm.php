@@ -11,8 +11,8 @@ class CategoryForm
     {
         return $schema
             ->components([
-                TextInput::make('name')->required()->maxLength(255),
-                TextInput::make('code')->required()->maxLength(255)->unique(ignoreRecord: true),
+                TextInput::make('name')->label(__('inventory.field.name'))->required()->maxLength(255),
+                TextInput::make('code')->label(__('inventory.field.code'))->required()->maxLength(255)->unique(ignoreRecord: true),
             ]);
     }
 }

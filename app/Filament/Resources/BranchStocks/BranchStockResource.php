@@ -16,11 +16,27 @@ class BranchStockResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Inventory';
-
     protected static ?int $navigationSort = 3;
 
-    protected static ?string $navigationLabel = 'Stock Levels';
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.inventory');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('inventory.resource.stock_levels');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('inventory.resource.stock_level');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('inventory.resource.stock_levels');
+    }
 
     public static function table(Table $table): Table
     {

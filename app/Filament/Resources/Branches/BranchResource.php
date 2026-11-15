@@ -22,11 +22,24 @@ class BranchResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Inventory';
-
     protected static ?int $navigationSort = 0;
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.inventory');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('inventory.resource.branch');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('inventory.resource.branches');
+    }
 
     public static function form(Schema $schema): Schema
     {
