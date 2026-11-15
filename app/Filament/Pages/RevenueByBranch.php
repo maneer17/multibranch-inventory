@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\MovementType;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -33,11 +34,11 @@ class RevenueByBranch extends Page implements HasTable
                 FROM branches b
                 LEFT JOIN stock_movements sm
                     ON sm.branch_id = b.id
-                    AND sm.type = 'sale'
+                    AND sm.type = ?
                     AND sm.unit_price IS NOT NULL
                 GROUP BY b.id, b.name
                 ORDER BY total_revenue DESC
-            "))->map(fn ($row) => (array) $row))
+            ", [MovementType::Sale->value]))->map(fn ($row) => (array) $row))
             ->columns([
                 TextColumn::make('branch_name')
                     ->label('Branch'),
