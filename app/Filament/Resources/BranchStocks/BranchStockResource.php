@@ -14,9 +14,13 @@ class BranchStockResource extends Resource
 {
     protected static ?string $model = BranchStock::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
 
-    protected static ?string $recordTitleAttribute = 'branch-stock';
+    protected static string|\UnitEnum|null $navigationGroup = 'Inventory';
+
+    protected static ?int $navigationSort = 3;
+
+    protected static ?string $navigationLabel = 'Stock Levels';
 
     public static function table(Table $table): Table
     {
