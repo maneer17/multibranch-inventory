@@ -16,13 +16,25 @@ class RevenueByBranch extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationLabel = 'Revenue by Branch';
-    protected static ?string $title = 'Revenue by Branch';
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
-    protected static string|\UnitEnum|null $navigationGroup = 'Reports';
     protected static ?int $navigationSort = 0;
 
     protected string $view = 'filament.pages.revenue-by-branch';
+
+    public static function getNavigationLabel(): string
+    {
+        return __('inventory.page.revenue_by_branch');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.reports');
+    }
+
+    public function getTitle(): string
+    {
+        return __('inventory.page.revenue_by_branch');
+    }
 
     public function table(Table $table): Table
     {
@@ -43,23 +55,23 @@ class RevenueByBranch extends Page implements HasTable
             ", [MovementType::Sale->value]))->map(fn ($row) => (array) $row))
             ->columns([
                 TextColumn::make('branch_name')
-                    ->label('Branch')
+                    ->label(__('inventory.revenue.branch'))
                     ->weight('bold')
                     ->icon(Heroicon::BuildingStorefront),
                 TextColumn::make('total_sales')
-                    ->label('Sales Count')
+                    ->label(__('inventory.revenue.sales_count'))
                     ->alignCenter()
                     ->badge()
                     ->color('info'),
                 TextColumn::make('total_revenue')
-                    ->label('Total Revenue')
+                    ->label(__('inventory.revenue.total_revenue'))
                     ->money('USD')
                     ->alignEnd()
                     ->weight('bold')
                     ->color('success'),
             ])
-            ->emptyStateHeading('No sales recorded yet')
-            ->emptyStateDescription('Revenue data will appear here once sales movements are logged.')
+            ->emptyStateHeading(__('inventory.revenue.no_sales'))
+            ->emptyStateDescription(__('inventory.revenue.no_sales_desc'))
             ->emptyStateIcon(Heroicon::OutlinedBanknotes);
     }
 }

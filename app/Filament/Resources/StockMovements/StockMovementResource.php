@@ -17,9 +17,22 @@ class StockMovementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Inventory';
-
     protected static ?int $navigationSort = 4;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.inventory');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('inventory.resource.stock_movement');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('inventory.resource.stock_movements');
+    }
 
     public static function table(Table $table): Table
     {

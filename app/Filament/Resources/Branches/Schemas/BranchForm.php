@@ -13,11 +13,11 @@ class BranchForm
     {
         return $schema
             ->components([
-                TextInput::make('code')->required()->maxLength(255)->unique(ignoreRecord: true),
-                TextInput::make('name')->required()->maxLength(255),
-                TextInput::make('city')->required()->maxLength(255),
-                KeyValue::make('address')->required(),
-                Toggle::make('is_active')->default(true),
+                TextInput::make('code')->label(__('inventory.field.code'))->required()->maxLength(255)->unique(ignoreRecord: true),
+                TextInput::make('name')->label(__('inventory.field.name'))->required()->maxLength(255),
+                TextInput::make('city')->label(__('inventory.field.city'))->required()->maxLength(255),
+                KeyValue::make('address')->label(__('inventory.field.address'))->required(),
+                Toggle::make('is_active')->label(__('inventory.field.active'))->default(true),
             ]);
     }
 }
