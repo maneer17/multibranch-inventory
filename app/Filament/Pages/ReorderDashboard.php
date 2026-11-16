@@ -28,6 +28,11 @@ class ReorderDashboard extends Page implements HasTable
 
     protected string $view = 'filament.pages.reorder-dashboard';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()->hasRole(['admin', 'branch_manager']);
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('inventory.page.reorder_suggestions');

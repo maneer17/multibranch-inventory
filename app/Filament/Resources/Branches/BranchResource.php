@@ -47,6 +47,21 @@ class BranchResource extends Resource
         return parent::getEloquentQuery()->forUser(auth()->user());
     }
 
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return BranchForm::configure($schema);
