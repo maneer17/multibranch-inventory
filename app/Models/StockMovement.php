@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MovementType;
+use App\Models\Concerns\ForUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use App\Casts\AsDecimal;
 
 class StockMovement extends Model
 {
-    use HasFactory;
+    use HasFactory, ForUser;
     public const UPDATED_AT = null;
 
     protected $casts = [
