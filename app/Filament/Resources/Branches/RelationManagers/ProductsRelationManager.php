@@ -36,10 +36,12 @@ class ProductsRelationManager extends RelationManager
             ->columns(self::pivotColumns(__('inventory.field.product')))
             ->headerActions([
                 AttachAction::make()
-                    ->schema(fn (AttachAction $action): array => self::pivotAttachFields($action)),
+                    ->schema(fn (AttachAction $action): array => self::pivotAttachFields($action))
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
                 Action::make('recordInitialStock')
                     ->label(__('inventory.relation.record_initial_stock'))
                     ->schema([
@@ -55,12 +57,13 @@ class ProductsRelationManager extends RelationManager
                             type: MovementType::InitialStockUpload,
                         );
                     }),
-                DetachAction::make(),
+                DetachAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DetachBulkAction::make(),
-                ]),
+                ])->visible(fn () => auth()->user()->hasRole('admin')),
             ]);
     }
 }

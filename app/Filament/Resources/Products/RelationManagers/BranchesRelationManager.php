@@ -36,11 +36,14 @@ class BranchesRelationManager extends RelationManager
             ->columns(self::pivotColumns(__('inventory.field.branch')))
             ->headerActions([
                 AttachAction::make()
-                    ->schema(fn (AttachAction $action): array => self::pivotAttachFields($action)),
+                    ->schema(fn (AttachAction $action): array => self::pivotAttachFields($action))
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->recordActions([
-                EditAction::make(),
-                DetachAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
+                DetachAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
                 Action::make('recordInitialStock')
                     ->label(__('inventory.relation.record_initial_stock'))
                     ->schema([
@@ -60,7 +63,7 @@ class BranchesRelationManager extends RelationManager
             ->toolbarActions([
                 BulkActionGroup::make([
                     DetachBulkAction::make(),
-                ]),
+                ])->visible(fn () => auth()->user()->hasRole('admin')),
             ]);
     }
 }

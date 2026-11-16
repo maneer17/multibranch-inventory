@@ -48,12 +48,13 @@ class ProductsTable
                     ->label(__('inventory.field.active')),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                ]),
+                ])->visible(fn () => auth()->user()->hasRole('admin')),
             ]);
     }
 }

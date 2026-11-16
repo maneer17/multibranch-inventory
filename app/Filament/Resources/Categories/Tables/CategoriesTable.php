@@ -19,12 +19,13 @@ class CategoriesTable
                 TextColumn::make('last_sku_sequence')->label(__('inventory.field.products_so_far')),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                ]),
+                ])->visible(fn () => auth()->user()->hasRole('admin')),
             ]);
     }
 }
