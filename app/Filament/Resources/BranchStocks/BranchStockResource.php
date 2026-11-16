@@ -9,6 +9,7 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BranchStockResource extends Resource
 {
@@ -41,6 +42,11 @@ class BranchStockResource extends Resource
     public static function table(Table $table): Table
     {
         return BranchStocksTable::configure($table);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->forUser(auth()->user());
     }
 
     public static function getRelations(): array
