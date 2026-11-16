@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BranchResource extends Resource
 {
@@ -39,6 +40,11 @@ class BranchResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('inventory.resource.branches');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->forUser(auth()->user());
     }
 
     public static function form(Schema $schema): Schema
