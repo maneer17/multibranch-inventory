@@ -41,6 +41,7 @@ class AdminPanelProvider extends PanelProvider
                     NavigationGroup::make(__('inventory.nav.inventory')),
                     NavigationGroup::make(__('inventory.nav.transfers')),
                     NavigationGroup::make(__('inventory.nav.reports')),
+                    NavigationGroup::make(__('inventory.nav.settings')),
                 ]);
             })
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

@@ -40,6 +40,21 @@ class ProductResource extends Resource
         return __('inventory.resource.products');
     }
 
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ProductForm::configure($schema);

@@ -39,6 +39,21 @@ class CategoryResource extends Resource
         return __('inventory.resource.categories');
     }
 
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return CategoryForm::configure($schema);

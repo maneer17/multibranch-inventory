@@ -21,6 +21,11 @@ class RevenueByBranch extends Page implements HasTable
 
     protected string $view = 'filament.pages.revenue-by-branch';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()->hasRole(['admin', 'branch_manager']);
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('inventory.page.revenue_by_branch');
