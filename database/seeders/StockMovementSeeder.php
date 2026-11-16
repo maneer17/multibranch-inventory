@@ -32,6 +32,7 @@ class StockMovementSeeder extends Seeder
 
         $this->seedBranchStock($stockService, $admin, $branches, $products);
         $this->seedAdjustments($stockService, $admin);
+        $this->seedReorderCandidates($stockService, $admin);
     }
 
     private function seedBranchStock(
@@ -142,6 +143,65 @@ class StockMovementSeeder extends Seeder
         );
 
         $movement->update(['created_at' => now()->subDays(rand(5, 20))]);
+    }
+
+    /**
+     * Drain a few branch-stock rows below their reorder point so the
+     * ReorderDashboard has suggestions to show on first login.
+     */
+    private function seedReorderCandidates(StockMovementService $stockService, User $admin): void
+    {
+        // Pick 3–4 rows that still have decent stock and whose product exists
+        // in at least one other branch (so a source candidate exists).
+        $candidates = BranchStock::with(['product', 'branch'])
+            ->where('quantity', '>', 20)
+            ->where('reorder_point', '>', 0)
+            ->get()
+            ->filter(function (BranchStock $stock) {
+                return BranchStock::where('product_id', $stock->product_id)
+                    ->where('branch_id', '!=', $stock->branch_id)
+                    ->where('quantity', '>', 30)
+                    ->exists();
+            })
+            ->shuffle()
+            ->take(4);
+
+        foreach ($candidates as $stock) {
+            // Sell enough to drop well below the reorder point.
+            // Target: leave ~30-60% of the reorder point.
+            $target = (new Number($stock->reorder_point->value))
+                ->mul(new Number('0.' . random_int(3, 6)));
+            $toSell = $stock->quantity->sub($target);
+
+            if ($toSell->compare(1) < 0) {
+                continue;
+            }
+
+            // Spread across 6–10 sales in the last 30 days (≥5 needed for trust).
+            $saleCount = random_int(6, 10);
+            $perSale = $toSell->div($saleCount, 3);
+
+            $salePrice = $stock->sale_price ?? new Number('5.00');
+
+            for ($i = 0; $i < $saleCount; $i++) {
+                $current = BranchStock::find($stock->id);
+                if ($current->quantity->compare($perSale) < 0) {
+                    break;
+                }
+
+                $movement = $stockService->submit(
+                    $stock->product, $stock->branch, $admin,
+                    $perSale,
+                    MovementType::Sale,
+                    note: 'High-demand sale',
+                    unitPrice: $salePrice,
+                );
+
+                $movement->update([
+                    'created_at' => now()->subDays(rand(0, 28))->subHours(rand(8, 18)),
+                ]);
+            }
+        }
     }
 
     private function seedAdjustments(StockMovementService $stockService, User $admin): void
