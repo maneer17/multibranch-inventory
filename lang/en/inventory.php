@@ -6,6 +6,7 @@ return [
         'inventory' => 'Inventory',
         'transfers' => 'Transfers',
         'reports' => 'Reports',
+        'settings' => 'Settings',
     ],
 
     // Resource labels
@@ -16,6 +17,8 @@ return [
         'categories' => 'Categories',
         'branch' => 'Branch',
         'branches' => 'Branches',
+        'user' => 'User',
+        'users' => 'Users',
         'stock_level' => 'Stock Level',
         'stock_levels' => 'Stock Levels',
         'stock_movement' => 'Stock Movement',
@@ -57,6 +60,20 @@ return [
         'below_reorder_point' => 'Below Reorder Point',
         'from' => 'From',
         'until' => 'Until',
+        'email' => 'Email',
+        'password' => 'Password',
+    ],
+
+    // User management
+    'user' => [
+        'account' => 'Account',
+        'access' => 'Access',
+        'role' => 'Role',
+        'assigned_branch' => 'Assigned Branch',
+        'password_hint' => 'Leave blank to keep current password.',
+        'branch_hint' => 'The branch this user operates from. Admins can see all branches.',
+        'role_hint' => 'Controls what this user can see and do in the dashboard.',
+        'all_branches' => 'All branches',
     ],
 
     // Units
