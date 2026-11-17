@@ -10,6 +10,11 @@ class ListCategories extends ListRecords
 {
     protected static string $resource = CategoryResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.categories');
+    }
+
     protected function getHeaderActions(): array
     {
         return [

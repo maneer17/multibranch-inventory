@@ -51,6 +51,18 @@ class ReorderDashboard extends Page implements HasTable
         return __('inventory.page.reorder_suggestions');
     }
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.reorder_suggestions');
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = count(app(ReorderPointService::class)->suggestAllTransfers());
+
+        return $count > 0 ? (string) $count : null;
+    }
+
     /**
      * Suggestions visible to the current user, computed once per request.
      *
@@ -134,6 +146,8 @@ class ReorderDashboard extends Page implements HasTable
                 ->persistent()
                 ->send();
         }
+
+        unset($this->suggestions);
     }
 
     public function table(Table $table): Table
@@ -208,6 +222,8 @@ class ReorderDashboard extends Page implements HasTable
                                 ],
                             ],
                         );
+
+                        unset($this->suggestions);
 
                         Notification::make()
                             ->title(__('inventory.reorder.transfer_created'))

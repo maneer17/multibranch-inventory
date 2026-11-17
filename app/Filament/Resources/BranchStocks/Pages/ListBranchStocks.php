@@ -8,4 +8,9 @@ use Filament\Resources\Pages\ListRecords;
 class ListBranchStocks extends ListRecords
 {
     protected static string $resource = BranchStockResource::class;
+
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.stock_levels');
+    }
 }

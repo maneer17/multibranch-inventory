@@ -41,6 +41,11 @@ class RevenueByBranch extends Page implements HasTable
         return __('inventory.page.revenue_by_branch');
     }
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.revenue_by_branch');
+    }
+
     public function table(Table $table): Table
     {
         return $table

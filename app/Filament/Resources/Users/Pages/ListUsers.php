@@ -10,6 +10,11 @@ class ListUsers extends ListRecords
 {
     protected static string $resource = UserResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.users');
+    }
+
     protected function getHeaderActions(): array
     {
         return [

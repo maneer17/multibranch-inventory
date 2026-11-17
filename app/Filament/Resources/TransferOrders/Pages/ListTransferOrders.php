@@ -18,6 +18,11 @@ class ListTransferOrders extends ListRecords
 {
     protected static string $resource = TransferOrderResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.transfer_orders');
+    }
+
     protected function getHeaderActions(): array
     {
         return [

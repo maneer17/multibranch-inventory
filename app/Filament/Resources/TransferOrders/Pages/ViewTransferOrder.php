@@ -21,6 +21,11 @@ class ViewTransferOrder extends ViewRecord
 {
     protected static string $resource = TransferOrderResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.transfer_order_view');
+    }
+
     public function infolist(Schema $schema): Schema
     {
         return $schema
