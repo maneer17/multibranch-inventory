@@ -42,7 +42,9 @@ class StockMovementResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->forUser(auth()->user());
+        return parent::getEloquentQuery()
+            ->with(['branch', 'product', 'user', 'transferOrder'])
+            ->forUser(auth()->user());
     }
 
     public static function getPages(): array
