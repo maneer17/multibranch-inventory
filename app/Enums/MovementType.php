@@ -28,6 +28,27 @@ enum MovementType: string implements HasLabel, HasColor
         return ! $this->isInbound();
     }
 
+    /**
+     * Transfer movements are created only by TransferOrderService,
+     * as part of a transfer order's lifecycle.
+     */
+    public function isTransfer(): bool
+    {
+        return $this === self::TransferIn || $this === self::TransferOut;
+    }
+
+    /**
+     * Types a person may record by hand. Transfers belong to the transfer
+     * lifecycle and the initial upload is a system setup step.
+     */
+    public function isManual(): bool
+    {
+        return match ($this) {
+            self::Sale, self::PurchaseReceipt, self::AdjustmentIn, self::AdjustmentOut => true,
+            self::TransferIn, self::TransferOut, self::InitialStockUpload => false,
+        };
+    }
+
     // Automatically handles the human-readable text in the badge
     public function getLabel(): ?string
     {
