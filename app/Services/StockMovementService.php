@@ -7,8 +7,8 @@ use App\Models\Branch;
 use App\Models\BranchStock;
 use App\Models\Product;
 use App\Models\StockMovement;
-use App\Models\User;
 use App\Models\TransferOrder;
+use App\Models\User;
 use BcMath\Number;
 use Illuminate\Support\Facades\DB;
 
@@ -26,19 +26,20 @@ class StockMovementService
         ?TransferOrder $transferOrder = null,
         ?Number $unitPrice = null,
     ): StockMovement {
+        // Round first, then validate: 0.0004 rounds to 0.000 and must be rejected.
+        $quantity = $quantity->round(self::SCALE);
+
         if ($quantity->compare(0) <= 0) {
             throw new \InvalidArgumentException('Quantity must be greater than 0.');
         }
 
-        $exists = $branch->products()
-            ->where('product_id', $product->id)
-            ->exists();
-
-        if (! $exists) {
-            throw new \DomainException('No branch_stock row exists for this product at this branch.');
+        // Transfer movements must belong to a transfer order, and only they may.
+        if ($type->isTransfer() !== ($transferOrder !== null)) {
+            throw new \InvalidArgumentException(
+                'Transfer movements require a transfer order, and other movements must not have one.'
+            );
         }
 
-        $quantity = $quantity->round(self::SCALE);
         $signedQuantity = $type->isOutbound() ? $quantity->mul(-1) : $quantity;
 
         return DB::transaction(function () use (
@@ -48,9 +49,12 @@ class StockMovementService
                 ->where('branch_id', $branch->id)
                 ->where('product_id', $product->id)
                 ->lockForUpdate()
-                ->first();
+                ->first()
+                ?? throw new \DomainException('No branch_stock row exists for this product at this branch.');
 
-            if ($branchStock->quantity->add($signedQuantity)->compare(0) < 0) {
+            $newQuantity = $branchStock->quantity->add($signedQuantity);
+
+            if ($newQuantity->compare(0) < 0) {
                 throw new \DomainException('This movement would take stock below zero.');
             }
 
@@ -65,9 +69,7 @@ class StockMovementService
                 'unit_price' => $unitPrice,
             ]);
 
-            $branchStock->update([
-                'quantity' => $branchStock->quantity->add($signedQuantity),
-            ]);
+            $branchStock->update(['quantity' => $newQuantity]);
 
             return $movement;
         });
