@@ -155,10 +155,29 @@ class ReorderPointService
     }
 
     /**
+     * Stock already on its way INTO this branch for this product.
+     *
+     * Counts transfers that have been requested, approved or shipped but
+     * not yet received. Without this, a shortage keeps looking like a
+     * shortage after someone has already created a transfer for it.
+     */
+    public function incomingQuantity(Branch $branch, Product $product): Number
+    {
+        $total = $this->incomingQuery()
+            ->where('transfer_orders.to_branch_id', $branch->id)
+            ->where('transfer_order_items.product_id', $product->id)
+            ->selectRaw($this->incomingSumSql().' as total_incoming', [TransferStatus::InTransit->value])
+            ->value('total_incoming');
+
+        return new Number((string) ($total ?? '0'));
+    }
+
+    /**
      * Suggest a single transfer for one branch + product.
      *
-     * Returns null if stock is above the reorder point or no
-     * candidate branch has surplus to share.
+     * Returns null if the inventory position (stock + incoming - reserved)
+     * is at or above the reorder point, or no candidate branch has surplus
+     * to share.
      */
     public function suggestTransfer(Branch $branch, Product $product): ?array
     {
@@ -172,10 +191,12 @@ class ReorderPointService
         }
 
         $available = $targetStock->available();
+        $incoming = $this->incomingQuantity($branch, $product);
         $reorderPoint = $this->reorderPoint($branch, $product);
 
-        // Stock is fine — no transfer needed.
-        if (! $reorderPoint || $available->compare($reorderPoint) >= 0) {
+        // Inventory position = what is here (minus reserved) + what is on its way.
+        // If that already covers the reorder point, no transfer is needed.
+        if (! $reorderPoint || $available->add($incoming)->compare($reorderPoint) >= 0) {
             return null;
         }
 
@@ -212,13 +233,13 @@ class ReorderPointService
 
         return $this->buildSuggestion(
             $product, $branch, $bestCandidate,
-            $available, $reorderPoint, $targetStock,
+            $available, $incoming, $reorderPoint, $targetStock,
         );
     }
 
     // ──────────────────────────────────────────────────────────
     //  Bulk path — for the dashboard / scheduled checks
-    //  Runs 4 queries total instead of N × M.
+    //  A fixed number of queries, however many branches/products.
     // ──────────────────────────────────────────────────────────
 
     /**
@@ -227,22 +248,28 @@ class ReorderPointService
      */
     public function suggestAllTransfers(): Collection
     {
-        // ① Load everything up front (4 queries).
+        // ① Load everything up front (a fixed number of queries).
         $allStock    = BranchStock::with(['branch', 'product'])->get();
         $usageMap    = $this->bulkUsageStats();
         $reservedMap = $this->bulkReservedQuantities();
+        $incomingMap = $this->bulkIncomingQuantities();
         $leadTimeMap = $this->bulkLeadTimes();
 
-        // ② Pre-compute ROP and available for every (branch, product).
+        // ② Pre-compute ROP, available and inventory position for every (branch, product).
+        //    available = on hand - reserved to go out   (what a branch can SHARE)
+        //    position  = available + incoming           (what a branch HAS COMING, for its own shortage check)
         $ropMap       = [];
         $availableMap = [];
+        $positionMap  = [];
         $leadTime     = new Number((string) self::LEAD_TIME_FALLBACK_DAYS);
 
         foreach ($allStock as $stock) {
             $key      = $this->stockKey($stock);
             $reserved = $reservedMap[$key] ?? new Number('0');
+            $incoming = $incomingMap[$key] ?? new Number('0');
 
             $availableMap[$key] = $stock->quantity->sub($reserved);
+            $positionMap[$key]  = $availableMap[$key]->add($incoming);
 
             $usage = $usageMap[$key] ?? null;
             $ropMap[$key] = $usage
@@ -256,14 +283,15 @@ class ReorderPointService
 
         // ④ Walk every row — pure map lookups, zero queries.
         return $allStock
-            ->map(function (BranchStock $stock) use ($ropMap, $availableMap, $byProduct, $leadTimeMap, $fallbackLeadTime) {
+            ->map(function (BranchStock $stock) use ($ropMap, $availableMap, $positionMap, $incomingMap, $byProduct, $leadTimeMap, $fallbackLeadTime) {
 
                 $key          = $this->stockKey($stock);
                 $available    = $availableMap[$key];
+                $incoming     = $incomingMap[$key] ?? new Number('0');
                 $reorderPoint = $ropMap[$key] ?? null;
 
-                // Stock is fine — skip.
-                if (! $reorderPoint || $available->compare($reorderPoint) >= 0) {
+                // Stock plus what is already on its way covers the reorder point — skip.
+                if (! $reorderPoint || $positionMap[$key]->compare($reorderPoint) >= 0) {
                     return null;
                 }
 
@@ -302,7 +330,7 @@ class ReorderPointService
 
                 return $this->buildSuggestion(
                     $stock->product, $stock->branch, $bestCandidate,
-                    $available, $reorderPoint, $stock,
+                    $available, $incoming, $reorderPoint, $stock,
                 );
             })
             ->filter()
@@ -330,10 +358,13 @@ class ReorderPointService
         Branch $toBranch,
         array $bestCandidate,
         Number $available,
+        Number $incoming,
         Number $reorderPoint,
         BranchStock $targetStock,
     ): array {
-        $bareMinimum = $reorderPoint->sub($available);
+        // The gap is measured against the inventory position, so stock
+        // already on its way in is not ordered a second time.
+        $bareMinimum = $reorderPoint->sub($available->add($incoming));
         $reorderQty  = $targetStock->reorder_qty;
 
         $needed = $reorderQty && $reorderQty->compare(0) > 0
@@ -351,8 +382,39 @@ class ReorderPointService
             'from_branch'   => $bestCandidate['stock']->branch,
             'quantity'       => $quantity,
             'available'      => $available,
+            'incoming'       => $incoming,
             'reorder_point'  => $reorderPoint,
         ];
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  Incoming-stock query helpers (shared by single + bulk paths)
+    // ──────────────────────────────────────────────────────────
+
+    /**
+     * Transfer items that have not arrived yet: requested, approved or in transit.
+     */
+    private function incomingQuery()
+    {
+        return TransferOrderItem::query()
+            ->join('transfer_orders', 'transfer_orders.id', '=', 'transfer_order_items.transfer_order_id')
+            ->whereIn('transfer_orders.status', [
+                TransferStatus::Requested->value,
+                TransferStatus::Approved->value,
+                TransferStatus::InTransit->value,
+            ]);
+    }
+
+    /**
+     * Expected incoming quantity per item. Once shipped, the amount actually
+     * sent is what will arrive; before that, it is the amount requested.
+     * Needs one binding: the in-transit status value.
+     */
+    private function incomingSumSql(): string
+    {
+        return 'SUM(CASE WHEN transfer_orders.status = ? '
+            .'THEN COALESCE(transfer_order_items.quantity_sent, transfer_order_items.quantity_requested) '
+            .'ELSE transfer_order_items.quantity_requested END)';
     }
 
     // ──────────────────────────────────────────────────────────
@@ -410,6 +472,32 @@ class ReorderPointService
         foreach ($rows as $row) {
             $key       = "{$row->branch_id}:{$row->product_id}";
             $map[$key] = new Number((string) $row->total_reserved);
+        }
+
+        return $map;
+    }
+
+    /**
+     * All incoming quantities in one query, keyed "to_branch_id:product_id".
+     *
+     * "Incoming" = stock on transfers headed to a branch that have been
+     * requested, approved or shipped, but not yet received.
+     */
+    private function bulkIncomingQuantities(): array
+    {
+        $rows = $this->incomingQuery()
+            ->selectRaw(
+                'transfer_orders.to_branch_id as branch_id, transfer_order_items.product_id, '.$this->incomingSumSql().' as total_incoming',
+                [TransferStatus::InTransit->value],
+            )
+            ->groupBy('transfer_orders.to_branch_id', 'transfer_order_items.product_id')
+            ->get();
+
+        $map = [];
+
+        foreach ($rows as $row) {
+            $key       = "{$row->branch_id}:{$row->product_id}";
+            $map[$key] = new Number((string) $row->total_incoming);
         }
 
         return $map;

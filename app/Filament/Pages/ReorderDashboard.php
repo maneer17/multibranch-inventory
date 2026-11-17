@@ -2,13 +2,13 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\Branch;
-use App\Models\Product;
 use App\Services\ReorderPointService;
 use App\Services\TransferOrderService;
 use BackedEnum;
 use BcMath\Number;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -18,6 +18,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Computed;
 
 class ReorderDashboard extends Page implements HasTable
 {
@@ -48,10 +51,101 @@ class ReorderDashboard extends Page implements HasTable
         return __('inventory.page.reorder_suggestions');
     }
 
+    /**
+     * Suggestions visible to the current user, computed once per request.
+     *
+     * Rows are keyed by "to:from:product" so a row keeps the same key even if
+     * the list changes between opening an action and submitting it.
+     */
+    #[Computed]
+    public function suggestions(): array
+    {
+        return collect(app(ReorderPointService::class)->suggestAllTransfers())
+            ->filter(fn (array $suggestion) => $this->canRequestFor($suggestion))
+            ->keyBy(fn (array $s) => "{$s['to_branch']->id}:{$s['from_branch']->id}:{$s['product']->id}")
+            ->all();
+    }
+
+    /**
+     * Admins can act on any suggestion. A branch manager can only request
+     * stock for their own branch (the one that is running low).
+     */
+    private function canRequestFor(array $suggestion): bool
+    {
+        $user = auth()->user();
+
+        return $user->hasRole('admin')
+            || (int) $suggestion['to_branch']->id === (int) $user->branch_id;
+    }
+
+    /**
+     * Turn the selected suggestions into transfer orders: one order per
+     * (source → destination) pair, with every product for that pair as an item.
+     */
+    private function createGroupedTransfers(Collection $records): void
+    {
+        $user = auth()->user();
+
+        // Check every selected row again on the server; the checkbox is not authorization.
+        abort_unless($records->every(fn (array $r) => $this->canRequestFor($r)), 403);
+
+        $created = 0;
+        $failures = [];
+
+        $records
+            ->groupBy(fn (array $r) => "{$r['from_branch']->id}:{$r['to_branch']->id}")
+            ->each(function (Collection $group) use ($user, &$created, &$failures) {
+                $first = $group->first();
+
+                $items = $group
+                    ->map(fn (array $r) => [
+                        'product' => $r['product'],
+                        'quantity' => $r['quantity'],
+                    ])
+                    ->values()
+                    ->all();
+
+                try {
+                    app(TransferOrderService::class)->createRequest(
+                        $first['from_branch'],
+                        $first['to_branch'],
+                        $user,
+                        $items,
+                    );
+
+                    $created++;
+                } catch (\DomainException | \InvalidArgumentException $e) {
+                    $failures[] = "{$first['from_branch']->name} → {$first['to_branch']->name}: {$e->getMessage()}";
+                }
+            });
+
+        if ($created > 0) {
+            Notification::make()
+                ->title(__('inventory.reorder.transfers_created', ['count' => $created]))
+                ->success()
+                ->send();
+        }
+
+        if ($failures !== []) {
+            Notification::make()
+                ->title(__('inventory.reorder.transfers_failed', ['count' => count($failures)]))
+                ->body(implode("\n", $failures))
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+    }
+
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn () => app(ReorderPointService::class)->suggestAllTransfers())
+            ->records(function (?string $search) {
+                return collect($this->suggestions)
+                    ->when(filled($search), fn ($rows) => $rows->filter(
+                        fn (array $s) => Str::contains($s['product']->name, $search, ignoreCase: true)
+                    ))
+                    ->all();
+            })
             ->columns([
                 TextColumn::make('product.name')
                     ->label(__('inventory.field.product'))
@@ -85,6 +179,7 @@ class ReorderDashboard extends Page implements HasTable
                     ->label(__('inventory.reorder.create_transfer'))
                     ->icon(Heroicon::PaperAirplane)
                     ->color('primary')
+                    ->visible(fn (array $record) => $this->canRequestFor($record))
                     ->schema(fn (array $record) => [
                         Placeholder::make('summary')
                             ->label(__('inventory.reorder.transfer_summary'))
@@ -99,14 +194,17 @@ class ReorderDashboard extends Page implements HasTable
                             ->minValue(1),
                     ])
                     ->action(function (array $data, array $record) {
+                        // Hiding the button is not authorization; check again on submit.
+                        abort_unless($this->canRequestFor($record), 403);
+
                         app(TransferOrderService::class)->createRequest(
-                            Branch::find($record['from_branch']->id),
-                            Branch::find($record['to_branch']->id),
+                            $record['from_branch'],
+                            $record['to_branch'],
                             auth()->user(),
                             [
                                 [
-                                    'product' => Product::find($record['product']->id),
-                                    'quantity' => new Number($data['quantity']),
+                                    'product' => $record['product'],
+                                    'quantity' => new Number((string) $data['quantity']),
                                 ],
                             ],
                         );
@@ -116,6 +214,18 @@ class ReorderDashboard extends Page implements HasTable
                             ->success()
                             ->send();
                     }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('createGroupedTransfers')
+                        ->label(__('inventory.reorder.create_selected'))
+                        ->icon(Heroicon::PaperAirplane)
+                        ->color('primary')
+                        ->requiresConfirmation()
+                        ->modalDescription(__('inventory.reorder.create_selected_confirm'))
+                        ->deselectRecordsAfterCompletion()
+                        ->action(fn (Collection $records) => $this->createGroupedTransfers($records)),
+                ]),
             ])
             ->emptyStateHeading(__('inventory.reorder.well_stocked'))
             ->emptyStateDescription(__('inventory.reorder.well_stocked_desc'))

@@ -104,7 +104,10 @@ return [
         'transfer_created' => 'Transfer request created',
         'well_stocked' => 'All branches are well stocked',
         'well_stocked_desc' => 'No products are below their reorder point right now.',
-    ],
+        'create_selected' => 'Create transfers for selected',
+        'create_selected_confirm' => 'One transfer order is created for each source → destination pair among the selected rows, using the suggested quantities.',
+        'transfers_created' => ':count transfer order(s) created',
+        'transfers_failed' => ':count transfer order(s) could not be created',    ],
 
     // Revenue page
     'revenue' => [
