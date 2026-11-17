@@ -42,7 +42,9 @@ class TransferOrderResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->forUser(auth()->user());
+        return parent::getEloquentQuery()
+            ->with(['fromBranch', 'toBranch', 'requester', 'approver'])
+            ->forUser(auth()->user());
     }
 
     public static function getPages(): array
