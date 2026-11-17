@@ -56,13 +56,6 @@ class ReorderDashboard extends Page implements HasTable
         return __('inventory.subheading.reorder_suggestions');
     }
 
-    public static function getNavigationBadge(): ?string
-    {
-        $count = count(app(ReorderPointService::class)->suggestAllTransfers());
-
-        return $count > 0 ? (string) $count : null;
-    }
-
     /**
      * Suggestions visible to the current user, computed once per request.
      *
