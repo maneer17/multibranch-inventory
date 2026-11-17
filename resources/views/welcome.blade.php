@@ -553,6 +553,7 @@ function setLang(l) {
         if (T[l][k]) el.textContent = T[l][k];
     });
     try { localStorage.setItem('stoq-lang', l); } catch(e) {}
+    fetch('/locale/' + l, { credentials: 'same-origin' }).catch(() => {});
 }
 
 function setTheme(dark) {
