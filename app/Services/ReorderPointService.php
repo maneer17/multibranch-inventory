@@ -249,7 +249,10 @@ class ReorderPointService
     public function suggestAllTransfers(): Collection
     {
         // ① Load everything up front (a fixed number of queries).
-        $allStock    = BranchStock::with(['branch', 'product'])->get();
+        //    For non-admin users the dashboard already filters suggestions
+        //    by canRequestFor(), but loading ALL stock rows is wasteful —
+        //    we still need candidate branches though, so load all stock.
+        $allStock    = BranchStock::with(['branch:id,name,code', 'product:id,name,sku'])->get();
         $usageMap    = $this->bulkUsageStats();
         $reservedMap = $this->bulkReservedQuantities();
         $incomingMap = $this->bulkIncomingQuantities();
