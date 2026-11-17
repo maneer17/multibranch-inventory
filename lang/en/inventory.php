@@ -91,6 +91,20 @@ return [
         'dashboard' => 'Dashboard',
     ],
 
+    // Page subheadings
+    'subheading' => [
+        'products' => 'Manage your product catalog — names, SKUs, pricing, and reorder thresholds.',
+        'categories' => 'Organize products into categories for easier browsing and reporting.',
+        'branches' => 'Your store locations — each branch maintains its own stock levels.',
+        'stock_levels' => 'Current quantity of each product at every branch.',
+        'stock_movements' => 'A ledger of every stock change — purchases, sales, adjustments, and transfers.',
+        'transfer_orders' => 'Track inter-branch stock transfers from request through approval, shipment, and receipt.',
+        'transfer_order_view' => 'Review the transfer details, items, and take action on this order.',
+        'users' => 'Manage dashboard users, their roles, and branch assignments.',
+        'reorder_suggestions' => 'Products below their reorder point, with suggested transfers from branches that have surplus stock.',
+        'revenue_by_branch' => 'Sales revenue totals per branch for a selected date range.',
+    ],
+
     // Reorder dashboard
     'reorder' => [
         'needs_stock' => 'Needs Stock',

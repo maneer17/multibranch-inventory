@@ -10,6 +10,11 @@ class ListStockMovements extends ListRecords
 {
     protected static string $resource = StockMovementResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.stock_movements');
+    }
+
     protected function getHeaderActions(): array
     {
         return [

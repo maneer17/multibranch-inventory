@@ -10,6 +10,11 @@ class ListProducts extends ListRecords
 {
     protected static string $resource = ProductResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.products');
+    }
+
     protected function getHeaderActions(): array
     {
         return [
