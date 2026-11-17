@@ -139,6 +139,11 @@ return [
     'relation' => [
         'record_initial_stock' => 'Record Initial Stock',
     ],
+    'movement' => [
+        'record' => 'Record movement',
+        'recorded' => 'Movement recorded',
+        'failed' => 'Could not record movement',
+    ],
 
     // Landing page
     'landing' => [
