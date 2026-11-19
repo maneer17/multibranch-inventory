@@ -1,59 +1,87 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Stoq
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Multi-branch inventory management with automatic replenishment. Stoq tracks stock at every branch, records each change in an immutable ledger, and suggests transfers from branches with surplus to branches running low.
 
-## About Laravel
+**Live demo:** [stoq.manar.page](https://stoq.manar.page) · 
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Demo accounts
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+The live demo is seeded with sample data and one account per role. Log in at [/admin](https://stoq.manar.page/admin).
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@example.com` | `password` |
+| Branch manager | `layla@example.com` | `password` |
+| Staff | `omar@example.com` | `password` |
 
-## Learning Laravel
+## Features
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- **Stock ledger.** Every change (sale, purchase, adjustment, transfer, opening stock) is an immutable, signed entry. Stock can never go below zero, and each write locks the stock row inside a transaction.
+- **Transfers between branches.** Requested → Approved → In Transit → Received, with Rejected and Cancelled as end states. Stock is reserved at the source from the moment of the request, and shipped and received quantities can differ.
+- **Reorder suggestions.** Reorder points come from the last 30 days of sales. Stock already on its way in is counted, so a shortage disappears once a transfer covers it. Select several suggestions to create one transfer order per source and destination pair.
+- **Recording movements.** Sales, purchase receipts, and adjustments are entered through one form. Adjustments require a reason.
+- **Exact arithmetic.** All quantities and prices use PHP 8.4's `BcMath\Number` with three decimals, and raw floats are rejected before they can be rounded silently.
+- **Branch-scoped access.** What a user sees and does depends on their role and their branch.
+- **Auto-generated SKUs.** Each category has its own sequence, safe under concurrent writes.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## How the reorder engine works
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+For each branch and product:
 
-## Agentic Development
+1. **Usage.** Average daily sales over the last 30 days. With fewer than 5 sales, the manually configured reorder point is used instead.
+2. **Reorder point.** `usage × lead time + usage × safety buffer`.
+3. **Inventory position.** `on hand − reserved to go out + incoming`. A branch is short when its position is below the reorder point.
+4. **Source.** Other branches with surplus are ranked by transfer lead time (from past transfers), then by surplus. The suggested quantity never exceeds what the source can spare.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+The dashboard loads everything it needs in a fixed number of queries, so it doesn't slow down as branches and products grow.
+
+## Roles
+
+| Role | Scope | Can do |
+|------|-------|--------|
+| `admin` | All branches | Manage users, branches, and the catalog; approve or reject transfers; see every movement |
+| `branch_manager` | Own branch | Reorder suggestions, request, ship, and receive transfers, record movements |
+| `staff` | Own branch | View stock and movements, record movements |
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Laravel 13, PHP 8.4 |
+| Admin panel | Filament 5 |
+| Database | PostgreSQL |
+| Permissions | spatie/laravel-permission |
+| Testing | Pest |
+| Hosting | Heroku (web dyno, Heroku Postgres) |
+
+## Running locally
+
+Requires PHP 8.4+, PostgreSQL, Composer, and Node.js.
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/your-username/stoq.git
+cd stoq
+composer install
+npm install && npm run build
+cp .env.example .env
+php artisan key:generate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Set your PostgreSQL connection in `.env` (`DB_CONNECTION=pgsql`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`), then:
 
-## Contributing
+```bash
+php artisan migrate --seed
+php artisan serve
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The seeder creates branches, users for each role, products, opening stock, and transfers at every stage. Log in at `http://localhost:8000/admin`.
 
-## Code of Conduct
+## Deployment
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The demo runs on Heroku. A `Procfile` defines the web process and runs migrations on every release. The app reads Heroku's `DATABASE_URL`, and sessions are stored in the database, since Heroku's disk is not persistent.
 
-## Security Vulnerabilities
+## Roadmap
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-# multibranch-inventory
+- Daily low-stock email digest for each branch
+- Excel export for stock and movements
+- Docker setup for local development
