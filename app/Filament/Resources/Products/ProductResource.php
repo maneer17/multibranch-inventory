@@ -19,9 +19,41 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCube;
 
-    protected static ?string $recordTitleAttribute = 'product';
+    protected static ?int $navigationSort = 1;
+
+    protected static ?string $recordTitleAttribute = 'name';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.inventory');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('inventory.resource.product');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('inventory.resource.products');
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()->hasRole('admin');
+    }
 
     public static function form(Schema $schema): Schema
     {

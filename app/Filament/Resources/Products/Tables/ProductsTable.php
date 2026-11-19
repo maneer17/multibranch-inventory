@@ -7,6 +7,8 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class ProductsTable
@@ -15,19 +17,44 @@ class ProductsTable
     {
         return $table
             ->columns([
-                TextColumn::make('sku')->searchable(),
-                TextColumn::make('name')->sortable()->searchable(),
-                TextColumn::make('category.name')->sortable(),
-                TextColumn::make('unit'),
-                IconColumn::make('is_active')->boolean(),
+                TextColumn::make('sku')
+                    ->label(__('inventory.field.sku'))
+                    ->searchable()
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('name')
+                    ->label(__('inventory.field.name'))
+                    ->sortable()
+                    ->searchable()
+                    ->weight('bold'),
+                TextColumn::make('category.name')
+                    ->label(__('inventory.field.category'))
+                    ->sortable()
+                    ->badge()
+                    ->color('info'),
+                TextColumn::make('unit')
+                    ->label(__('inventory.field.unit'))
+                    ->badge()
+                    ->color('gray'),
+                IconColumn::make('is_active')
+                    ->label(__('inventory.field.active'))
+                    ->boolean(),
+            ])
+            ->filters([
+                SelectFilter::make('category_id')
+                    ->label(__('inventory.field.category'))
+                    ->relationship('category', 'name'),
+                TernaryFilter::make('is_active')
+                    ->label(__('inventory.field.active')),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                ]),
+                ])->visible(fn () => auth()->user()->hasRole('admin')),
             ]);
     }
 }

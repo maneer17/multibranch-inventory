@@ -10,10 +10,16 @@ class ListBranches extends ListRecords
 {
     protected static string $resource = BranchResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.branches');
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            CreateAction::make()
+                ->visible(fn () => auth()->user()->hasRole('admin')),
         ];
     }
 }

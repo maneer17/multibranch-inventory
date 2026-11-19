@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\MovementType;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -15,39 +16,82 @@ class RevenueByBranch extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationLabel = 'Revenue by Branch';
-    protected static ?string $title = 'Revenue by Branch';
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
+    protected static ?int $navigationSort = 0;
 
     protected string $view = 'filament.pages.revenue-by-branch';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()->hasRole(['admin', 'branch_manager']);
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('inventory.page.revenue_by_branch');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('inventory.nav.reports');
+    }
+
+    public function getTitle(): string
+    {
+        return __('inventory.page.revenue_by_branch');
+    }
+
+    public function getSubheading(): ?string
+    {
+        return __('inventory.subheading.revenue_by_branch');
+    }
 
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn () => collect(DB::select("
-                SELECT
-                    b.id AS branch_id,
-                    b.name AS branch_name,
-                    COUNT(sm.id) AS total_sales,
-                    COALESCE(SUM(ABS(sm.quantity) * sm.unit_price), 0) AS total_revenue
-                FROM branches b
-                LEFT JOIN stock_movements sm
-                    ON sm.branch_id = b.id
-                    AND sm.type = 'sale'
-                    AND sm.unit_price IS NOT NULL
-                GROUP BY b.id, b.name
-                ORDER BY total_revenue DESC
-            "))->map(fn ($row) => (array) $row))
+            ->records(function () {
+                $user = auth()->user();
+                $branchFilter = $user->hasRole('admin') ? '' : 'AND b.id = ?';
+                $params = [MovementType::Sale->value];
+                if (! $user->hasRole('admin')) {
+                    $params[] = $user->branch_id;
+                }
+
+                return collect(DB::select("
+                    SELECT
+                        b.id AS branch_id,
+                        b.name AS branch_name,
+                        COUNT(sm.id) AS total_sales,
+                        COALESCE(SUM(ABS(sm.quantity) * sm.unit_price), 0) AS total_revenue
+                    FROM branches b
+                    LEFT JOIN stock_movements sm
+                        ON sm.branch_id = b.id
+                        AND sm.type = ?
+                        AND sm.unit_price IS NOT NULL
+                    WHERE 1=1 {$branchFilter}
+                    GROUP BY b.id, b.name
+                    ORDER BY total_revenue DESC
+                ", $params))->map(fn ($row) => (array) $row);
+            })
             ->columns([
                 TextColumn::make('branch_name')
-                    ->label('Branch'),
+                    ->label(__('inventory.revenue.branch'))
+                    ->weight('bold')
+                    ->icon(Heroicon::BuildingStorefront),
                 TextColumn::make('total_sales')
-                    ->label('Sales Count')
-                    ->alignCenter(),
+                    ->label(__('inventory.revenue.sales_count'))
+                    ->alignCenter()
+                    ->badge()
+                    ->color('info'),
                 TextColumn::make('total_revenue')
-                    ->label('Total Revenue')
+                    ->label(__('inventory.revenue.total_revenue'))
                     ->money('USD')
-                    ->alignEnd(),
-            ]);
+                    ->alignEnd()
+                    ->weight('bold')
+                    ->color('success'),
+            ])
+            ->emptyStateHeading(__('inventory.revenue.no_sales'))
+            ->emptyStateDescription(__('inventory.revenue.no_sales_desc'))
+            ->emptyStateIcon(Heroicon::OutlinedBanknotes);
     }
 }

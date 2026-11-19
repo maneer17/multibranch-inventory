@@ -2,30 +2,37 @@
 
 namespace App\Filament\Resources\TransferOrders;
 
-//use App\Filament\Resources\TransferOrders\Pages\CreateTransferOrder;
-//use App\Filament\Resources\TransferOrders\Pages\EditTransferOrder;
 use App\Filament\Resources\TransferOrders\Pages\ViewTransferOrder;
 use App\Filament\Resources\TransferOrders\Pages\ListTransferOrders;
-use App\Filament\Resources\TransferOrders\Schemas\TransferOrderForm;
 use App\Filament\Resources\TransferOrders\Tables\TransferOrdersTable;
 use App\Models\TransferOrder;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class TransferOrderResource extends Resource
 {
     protected static ?string $model = TransferOrder::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
 
-    protected static ?string $recordTitleAttribute = 'transferOrder';
+    protected static ?int $navigationSort = 0;
 
-    public static function form(Schema $schema): Schema
+    public static function getNavigationGroup(): ?string
     {
-        return TransferOrderForm::configure($schema);
+        return __('inventory.nav.transfers');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('inventory.resource.transfer_order');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('inventory.resource.transfer_orders');
     }
 
     public static function table(Table $table): Table
@@ -33,20 +40,18 @@ class TransferOrderResource extends Resource
         return TransferOrdersTable::configure($table);
     }
 
-    public static function getRelations(): array
+    public static function getEloquentQuery(): Builder
     {
-        return [
-            //
-        ];
+        return parent::getEloquentQuery()
+            ->with(['fromBranch', 'toBranch', 'requester', 'approver'])
+            ->forUser(auth()->user());
     }
 
     public static function getPages(): array
     {
         return [
-            'view' => ViewTransferOrder::route('/{record}'),
             'index' => ListTransferOrders::route('/'),
-            //'create' => CreateTransferOrder::route('/create'),
-            //'edit' => EditTransferOrder::route('/{record}/edit'),
+            'view' => ViewTransferOrder::route('/{record}'),
         ];
     }
 }

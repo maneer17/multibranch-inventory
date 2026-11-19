@@ -59,20 +59,18 @@ class ReconcileStockCommand extends Command
             return self::SUCCESS;
         }
 
-        $fixed = 0;
+        DB::transaction(function () use ($mismatches) {
+            foreach ($mismatches as $row) {
+                DB::table('branch_stock')
+                    ->where('id', $row->branch_stock_id)
+                    ->update(['quantity' => $row->ledger_sum]);
 
-        foreach ($mismatches as $row) {
-            DB::table('branch_stock')
-                ->where('id', $row->branch_stock_id)
-                ->update(['quantity' => $row->ledger_sum]);
-
-            $fixed++;
-
-            $this->line("  Fixed: {$row->branch_name} / {$row->product_name} — {$row->cached_quantity} → {$row->ledger_sum}");
-        }
+                $this->line("  Fixed: {$row->branch_name} / {$row->product_name} — {$row->cached_quantity} → {$row->ledger_sum}");
+            }
+        });
 
         $this->newLine();
-        $this->info("✓ {$fixed} row(s) corrected.");
+        $this->info('✓ ' . count($mismatches) . ' row(s) corrected.');
 
         return self::SUCCESS;
     }

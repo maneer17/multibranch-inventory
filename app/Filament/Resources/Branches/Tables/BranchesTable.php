@@ -15,18 +15,32 @@ class BranchesTable
     {
         return $table
             ->columns([
-                TextColumn::make('code')->searchable(),
-                TextColumn::make('name')->sortable()->searchable(),
-                TextColumn::make('city')->sortable()->searchable(),
-                IconColumn::make('is_active')->boolean(),
+                TextColumn::make('code')
+                    ->label(__('inventory.field.code'))
+                    ->searchable()
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('name')
+                    ->label(__('inventory.field.name'))
+                    ->sortable()
+                    ->searchable()
+                    ->weight('bold'),
+                TextColumn::make('city')
+                    ->label(__('inventory.field.city'))
+                    ->sortable()
+                    ->searchable(),
+                IconColumn::make('is_active')
+                    ->label(__('inventory.field.active'))
+                    ->boolean(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                ]),
+                ])->visible(fn () => auth()->user()->hasRole('admin')),
             ]);
     }
 }

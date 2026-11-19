@@ -3,17 +3,14 @@
 namespace App\Filament\Resources\BranchStocks\Pages;
 
 use App\Filament\Resources\BranchStocks\BranchStockResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListBranchStocks extends ListRecords
 {
     protected static string $resource = BranchStockResource::class;
 
-    protected function getHeaderActions(): array
+    public function getSubheading(): ?string
     {
-        return [
-            //CreateAction::make(),
-        ];
+        return __('inventory.subheading.stock_levels');
     }
 }
