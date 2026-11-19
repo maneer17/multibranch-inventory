@@ -32,3 +32,4 @@ Thumbs.db
 .idea/
 .vite/
 .claude/worktrees/
+.claude/
