@@ -69,6 +69,8 @@ class TransferOrderService
         }
 
         return DB::transaction(function () use ($from, $to, $requester, $lines, $names) {
+            usort($lines, fn ($a, $b) => $a['product_id'] <=> $b['product_id']);
+
             foreach ($lines as $line) {
                 // Lock the source row: this is the mutex stopping two
                 // concurrent requests from both passing the availability
@@ -123,28 +125,34 @@ class TransferOrderService
 
     private function changeOrderStatus(TransferOrder $order, TransferStatus $status, ?User $approver = null): TransferOrder
     {
-        if (! $order->status->canTransitionTo($status)) {
-            throw new \DomainException("This order cannot transition to {$status->value}.");
-        }
+        return DB::transaction(function () use ($order, $status, $approver) {
+            $locked = TransferOrder::lockForUpdate()->find($order->id);
 
-        $data = ['status' => $status];
+            if (! $locked->status->canTransitionTo($status)) {
+                throw new \DomainException("This order cannot transition to {$status->value}.");
+            }
 
-        if ($approver) {
-            $data['approved_by'] = $approver->id;
-        }
+            $data = ['status' => $status];
 
-        $order->update($data);
+            if ($approver) {
+                $data['approved_by'] = $approver->id;
+            }
 
-        return $order;
+            $locked->update($data);
+
+            return $order->refresh();
+        });
     }
 
     public function ship(TransferOrder $order, User $user, array $sentQuantities = []): TransferOrder
     {
-        if (! $order->status->canTransitionTo(TransferStatus::InTransit)) {
-            throw new \DomainException('This order cannot be shipped from its current status.');
-        }
-
         return DB::transaction(function () use ($order, $user, $sentQuantities) {
+            $order = TransferOrder::lockForUpdate()->with(['items.product', 'fromBranch'])->findOrFail($order->id);
+
+            if (! $order->status->canTransitionTo(TransferStatus::InTransit)) {
+                throw new \DomainException('This order cannot be shipped from its current status.');
+            }
+
             $order->update(['status' => TransferStatus::InTransit]);
 
             foreach ($order->items as $item) {
@@ -170,11 +178,13 @@ class TransferOrderService
 
     public function receive(TransferOrder $order, User $user, array $receivedQuantities = []): TransferOrder
     {
-        if (! $order->status->canTransitionTo(TransferStatus::Received)) {
-            throw new \DomainException('This order cannot be received from its current status.');
-        }
-
         return DB::transaction(function () use ($order, $user, $receivedQuantities) {
+            $order = TransferOrder::lockForUpdate()->with(['items.product', 'toBranch'])->findOrFail($order->id);
+
+            if (! $order->status->canTransitionTo(TransferStatus::Received)) {
+                throw new \DomainException('This order cannot be received from its current status.');
+            }
+
             foreach ($order->items as $item) {
                 // Defaults to what was sent — override only needed when what
                 // actually arrived differs (damage, loss in transit).
