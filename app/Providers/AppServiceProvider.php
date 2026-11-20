@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Livewire\Synthesizers\NumberSynth;
+use Illuminate\Foundation\DevCommands;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use App\Models\TransferOrder;
@@ -39,5 +40,15 @@ class AppServiceProvider extends ServiceProvider
         ]);
         Product::observe(ProductObserver::class);
         Livewire::propertySynthesizer(NumberSynth::class);
+
+        if ($this->app->environment('local')) {
+            // `artisan serve` ignores PHP_CLI_SERVER_WORKERS unless --no-reload is set,
+            // and one worker queues all of Filament's asset requests behind each other.
+            if (env('PHP_CLI_SERVER_WORKERS') === null) {
+                putenv('PHP_CLI_SERVER_WORKERS=4');
+            }
+
+            DevCommands::artisan('serve --no-reload', 'server');
+        }
     }
 }
