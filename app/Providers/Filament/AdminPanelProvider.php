@@ -46,6 +46,10 @@ class AdminPanelProvider extends PanelProvider
                 ]);
             })
             ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn () => view('partials.favicons'),
+            )
+            ->renderHook(
                 PanelsRenderHook::TOPBAR_END,
                 fn () => view('filament.language-switcher'),
             )
