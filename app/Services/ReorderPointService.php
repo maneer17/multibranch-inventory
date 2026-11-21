@@ -13,6 +13,13 @@ use BcMath\Number;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
+/**
+ * Works out which branches are running low and where to move stock from.
+ *
+ * Everything is calculated in bulk: the data is loaded up front in a fixed
+ * number of queries, then each branch and product is checked with plain
+ * array lookups. Adding more branches or products does not add queries.
+ */
 class ReorderPointService
 {
     private const LOOKBACK_DAYS = 30;
@@ -22,245 +29,31 @@ class ReorderPointService
     private const SAFETY_BUFFER_DAYS = 1;
 
     // ──────────────────────────────────────────────────────────
-    //  Shared formula — single source of truth for the ROP math
+    //  Main entry point
     // ──────────────────────────────────────────────────────────
 
     /**
-     * ROP = (daily usage × lead time) + (daily usage × safety buffer)
-     */
-    private function computeRop(Number $usage, Number $leadTime): Number
-    {
-        $safetyBuffer = new Number((string) self::SAFETY_BUFFER_DAYS);
-
-        return $usage
-            ->mul($leadTime, 3)
-            ->add($usage->mul($safetyBuffer, 3));
-    }
-
-    // ──────────────────────────────────────────────────────────
-    //  Single-record methods — for detail pages, AI tool, etc.
-    // ──────────────────────────────────────────────────────────
-
-    /**
-     * Average units sold per day over the last 30 days.
+     * Suggest a transfer for every branch + product that is below its
+     * reorder point and has another branch able to help.
      *
-     * Returns null when there aren't enough sales to trust the number,
-     * so the caller can fall back to a manually configured threshold.
-     */
-    public function averageDailyUsage(Branch $branch, Product $product): ?Number
-    {
-        $result = StockMovement::query()
-            ->where('branch_id', $branch->id)
-            ->where('product_id', $product->id)
-            ->where('type', MovementType::Sale)
-            ->where('created_at', '>=', now()->subDays(self::LOOKBACK_DAYS))
-            ->selectRaw('COUNT(*) as sale_count, COALESCE(SUM(quantity), 0) as total_qty')
-            ->first();
-
-        if ($result->sale_count < self::MIN_SALES_FOR_TRUST) {
-            return null;
-        }
-
-        $totalSold = new Number((string) $result->total_qty);
-
-        // Sales are stored as negative (outbound) — flip to positive.
-        if ($totalSold->compare(0) < 0) {
-            $totalSold = $totalSold->mul(-1);
-        }
-
-        return $totalSold->div(self::LOOKBACK_DAYS, 3);
-    }
-
-    /**
-     * Average days a transfer takes on a specific route (from → to).
-     *
-     * Looks at completed transfers only. Returns null when there
-     * aren't enough transfers to trust the number.
-     */
-    public function leadTimeDays(Branch $from, Branch $to): ?Number
-    {
-        $routeFilter = fn ($q) => $q
-            ->where('from_branch_id', $from->id)
-            ->where('to_branch_id', $to->id)
-            ->where('status', TransferStatus::Received);
-
-        $shippedAt = StockMovement::query()
-            ->where('type', MovementType::TransferOut)
-            ->whereHas('transferOrder', $routeFilter)
-            ->selectRaw('transfer_order_id, MIN(created_at) as shipped_at')
-            ->groupBy('transfer_order_id')
-            ->pluck('shipped_at', 'transfer_order_id');
-
-        $receivedAt = StockMovement::query()
-            ->where('type', MovementType::TransferIn)
-            ->whereHas('transferOrder', $routeFilter)
-            ->selectRaw('transfer_order_id, MIN(created_at) as received_at')
-            ->groupBy('transfer_order_id')
-            ->pluck('received_at', 'transfer_order_id');
-
-        $durations = $shippedAt->keys()
-            ->intersect($receivedAt->keys())
-            ->map(fn ($id) => Carbon::parse($shippedAt[$id])
-                ->diffInDays(Carbon::parse($receivedAt[$id])));
-
-        if ($durations->count() < self::MIN_TRANSFERS_FOR_TRUST) {
-            return null;
-        }
-
-        $total = $durations->reduce(
-            fn (Number $carry, int $days) => $carry->add($days),
-            new Number('0'),
-        );
-
-        return $total->div($durations->count(), 3);
-    }
-
-    /**
-     * The reorder point for one branch + product.
-     *
-     * If there's enough sales history → uses the formula.
-     * If not → falls back to the manually configured threshold.
-     */
-    public function reorderPoint(Branch $branch, Product $product): ?Number
-    {
-        $usage = $this->averageDailyUsage($branch, $product);
-
-        if (! $usage) {
-            return BranchStock::query()
-                ->where('branch_id', $branch->id)
-                ->where('product_id', $product->id)
-                ->value('reorder_point');
-        }
-
-        $leadTime = new Number((string) self::LEAD_TIME_FALLBACK_DAYS);
-
-        return $this->computeRop($usage, $leadTime);
-    }
-
-    /**
-     * Available stock for one branch + product (quantity minus reserved).
-     */
-    public function available(Branch $branch, Product $product): ?Number
-    {
-        $branchStock = BranchStock::query()
-            ->where('branch_id', $branch->id)
-            ->where('product_id', $product->id)
-            ->first();
-
-        if (! $branchStock) {
-            return null;
-        }
-
-        return $branchStock->available();
-    }
-
-    /**
-     * Stock already on its way INTO this branch for this product.
-     *
-     * Counts transfers that have been requested, approved or shipped but
-     * not yet received. Without this, a shortage keeps looking like a
-     * shortage after someone has already created a transfer for it.
-     */
-    public function incomingQuantity(Branch $branch, Product $product): Number
-    {
-        $total = $this->incomingQuery()
-            ->where('transfer_orders.to_branch_id', $branch->id)
-            ->where('transfer_order_items.product_id', $product->id)
-            ->selectRaw($this->incomingSumSql().' as total_incoming', [TransferStatus::InTransit->value])
-            ->value('total_incoming');
-
-        return new Number((string) ($total ?? '0'));
-    }
-
-    /**
-     * Suggest a single transfer for one branch + product.
-     *
-     * Returns null if the inventory position (stock + incoming - reserved)
-     * is at or above the reorder point, or no candidate branch has surplus
-     * to share.
-     */
-    public function suggestTransfer(Branch $branch, Product $product): ?array
-    {
-        $targetStock = BranchStock::query()
-            ->where('branch_id', $branch->id)
-            ->where('product_id', $product->id)
-            ->first();
-
-        if (! $targetStock) {
-            return null;
-        }
-
-        $available = $targetStock->available();
-        $incoming = $this->incomingQuantity($branch, $product);
-        $reorderPoint = $this->reorderPoint($branch, $product);
-
-        // Inventory position = what is here (minus reserved) + what is on its way.
-        // If that already covers the reorder point, no transfer is needed.
-        if (! $reorderPoint || $available->add($incoming)->compare($reorderPoint) >= 0) {
-            return null;
-        }
-
-        $fallbackLeadTime = new Number((string) self::LEAD_TIME_FALLBACK_DAYS);
-
-        // Find the best source: closest (by lead time), with most surplus.
-        $bestCandidate = BranchStock::query()
-            ->with('branch')
-            ->where('product_id', $product->id)
-            ->where('branch_id', '!=', $branch->id)
-            ->get()
-            ->map(function (BranchStock $stock) use ($product, $branch, $fallbackLeadTime) {
-                $candidateRop = $this->reorderPoint($stock->branch, $product) ?? new Number('0');
-
-                return [
-                    'stock'     => $stock,
-                    'surplus'   => $stock->available()->sub($candidateRop),
-                    'lead_time' => $this->leadTimeDays($stock->branch, $branch) ?? $fallbackLeadTime,
-                ];
-            })
-            ->filter(fn (array $c) => $c['surplus']->compare(0) > 0)
-            ->sort(function (array $a, array $b) {
-                $byLeadTime = $a['lead_time']->compare($b['lead_time']);
-
-                return $byLeadTime !== 0
-                    ? $byLeadTime
-                    : $b['surplus']->compare($a['surplus']);
-            })
-            ->first();
-
-        if (! $bestCandidate) {
-            return null;
-        }
-
-        return $this->buildSuggestion(
-            $product, $branch, $bestCandidate,
-            $available, $incoming, $reorderPoint, $targetStock,
-        );
-    }
-
-    // ──────────────────────────────────────────────────────────
-    //  Bulk path — for the dashboard / scheduled checks
-    //  A fixed number of queries, however many branches/products.
-    // ──────────────────────────────────────────────────────────
-
-    /**
-     * Suggest transfers for every branch + product that is
-     * below its reorder point.
+     * Each suggestion is an array with: product, to_branch, from_branch,
+     * quantity, available, incoming, reorder_point.
      */
     public function suggestAllTransfers(): Collection
     {
         // ① Load everything up front (a fixed number of queries).
-        //    For non-admin users the dashboard already filters suggestions
-        //    by canRequestFor(), but loading ALL stock rows is wasteful —
-        //    we still need candidate branches though, so load all stock.
+        //    We load every branch's stock, not just the current user's,
+        //    because a branch's best source is usually a different branch.
         $allStock    = BranchStock::with(['branch:id,name,code', 'product:id,name,sku'])->get();
         $usageMap    = $this->bulkUsageStats();
         $reservedMap = $this->bulkReservedQuantities();
         $incomingMap = $this->bulkIncomingQuantities();
         $leadTimeMap = $this->bulkLeadTimes();
 
-        // ② Pre-compute ROP, available and inventory position for every (branch, product).
+        // ② Pre-compute three numbers for every (branch, product):
         //    available = on hand - reserved to go out   (what a branch can SHARE)
-        //    position  = available + incoming           (what a branch HAS COMING, for its own shortage check)
+        //    position  = available + incoming           (what a branch HAS, counting what is on its way)
+        //    rop       = the level below which it needs more stock
         $ropMap       = [];
         $availableMap = [];
         $positionMap  = [];
@@ -274,17 +67,19 @@ class ReorderPointService
             $availableMap[$key] = $stock->quantity->sub($reserved);
             $positionMap[$key]  = $availableMap[$key]->add($incoming);
 
+            // Enough sales history: use the formula. Otherwise fall back
+            // to the reorder point someone set by hand.
             $usage = $usageMap[$key] ?? null;
             $ropMap[$key] = $usage
                 ? $this->computeRop($usage, $leadTime)
                 : $stock->reorder_point;
         }
 
-        // ③ Group by product so we can find candidates without querying.
-        $byProduct       = $allStock->groupBy('product_id');
+        // ③ Group by product so we can find candidate sources without querying.
+        $byProduct        = $allStock->groupBy('product_id');
         $fallbackLeadTime = $leadTime;
 
-        // ④ Walk every row — pure map lookups, zero queries.
+        // ④ Check every row using only map lookups (zero queries).
         return $allStock
             ->map(function (BranchStock $stock) use ($ropMap, $availableMap, $positionMap, $incomingMap, $byProduct, $leadTimeMap, $fallbackLeadTime) {
 
@@ -293,15 +88,17 @@ class ReorderPointService
                 $incoming     = $incomingMap[$key] ?? new Number('0');
                 $reorderPoint = $ropMap[$key] ?? null;
 
-                // Stock plus what is already on its way covers the reorder point — skip.
+                // No reorder point, or stock plus what is already on its way
+                // covers it: nothing to suggest.
                 if (! $reorderPoint || $positionMap[$key]->compare($reorderPoint) >= 0) {
                     return null;
                 }
 
-                // Candidates = other branches that carry this product.
+                // Candidate sources = other branches that carry this product.
                 $candidates = ($byProduct[$stock->product_id] ?? collect())
                     ->filter(fn (BranchStock $s) => $s->branch_id !== $stock->branch_id);
 
+                // Best source = shortest lead time, then the most surplus.
                 $bestCandidate = $candidates
                     ->map(function (BranchStock $candidate) use ($stock, $ropMap, $availableMap, $leadTimeMap, $fallbackLeadTime) {
                         $cKey = $this->stockKey($candidate);
@@ -313,6 +110,7 @@ class ReorderPointService
 
                         return [
                             'stock'     => $candidate,
+                            // Surplus = what the source can spare while staying above its own reorder point.
                             'surplus'   => $candidateAvailable->sub($candidateRop),
                             'lead_time' => $leadTimeMap[$routeKey] ?? $fallbackLeadTime,
                         ];
@@ -327,6 +125,7 @@ class ReorderPointService
                     })
                     ->first();
 
+                // Nobody has stock to spare.
                 if (! $bestCandidate) {
                     return null;
                 }
@@ -341,8 +140,20 @@ class ReorderPointService
     }
 
     // ──────────────────────────────────────────────────────────
-    //  Private helpers
+    //  Calculation helpers
     // ──────────────────────────────────────────────────────────
+
+    /**
+     * ROP = (daily usage × lead time) + (daily usage × safety buffer)
+     */
+    private function computeRop(Number $usage, Number $leadTime): Number
+    {
+        $safetyBuffer = new Number((string) self::SAFETY_BUFFER_DAYS);
+
+        return $usage
+            ->mul($leadTime, 3)
+            ->add($usage->mul($safetyBuffer, 3));
+    }
 
     /**
      * Consistent map key for a BranchStock row.
@@ -353,8 +164,7 @@ class ReorderPointService
     }
 
     /**
-     * Build the suggestion array — shared by both paths so the
-     * output shape stays consistent.
+     * Build one suggestion array.
      */
     private function buildSuggestion(
         Product $product,
@@ -370,6 +180,8 @@ class ReorderPointService
         $bareMinimum = $reorderPoint->sub($available->add($incoming));
         $reorderQty  = $targetStock->reorder_qty;
 
+        // Use the configured reorder quantity if there is one,
+        // otherwise just cover the gap.
         $needed = $reorderQty && $reorderQty->compare(0) > 0
             ? $reorderQty
             : $bareMinimum;
@@ -383,15 +195,15 @@ class ReorderPointService
             'product'       => $product,
             'to_branch'     => $toBranch,
             'from_branch'   => $bestCandidate['stock']->branch,
-            'quantity'       => $quantity,
-            'available'      => $available,
-            'incoming'       => $incoming,
-            'reorder_point'  => $reorderPoint,
+            'quantity'      => $quantity,
+            'available'     => $available,
+            'incoming'      => $incoming,
+            'reorder_point' => $reorderPoint,
         ];
     }
 
     // ──────────────────────────────────────────────────────────
-    //  Incoming-stock query helpers (shared by single + bulk paths)
+    //  Incoming-stock query helpers
     // ──────────────────────────────────────────────────────────
 
     /**
@@ -421,11 +233,15 @@ class ReorderPointService
     }
 
     // ──────────────────────────────────────────────────────────
-    //  Bulk data loaders (one query each)
+    //  Bulk data loaders (one query each, except lead times)
     // ──────────────────────────────────────────────────────────
 
     /**
-     * All usage rates in one query, keyed "branch_id:product_id".
+     * Average daily sales per branch + product over the last 30 days,
+     * keyed "branch_id:product_id".
+     *
+     * Pairs with fewer than 5 sales are left out, so the caller falls back
+     * to the manually configured reorder point.
      */
     private function bulkUsageStats(): array
     {
@@ -436,7 +252,7 @@ class ReorderPointService
             ->groupBy('branch_id', 'product_id')
             ->get();
 
-        $map     = [];
+        $map      = [];
         $lookback = new Number((string) self::LOOKBACK_DAYS);
 
         foreach ($rows as $row) {
@@ -452,8 +268,7 @@ class ReorderPointService
     }
 
     /**
-     * All reserved (pending outbound) quantities in one query,
-     * keyed "branch_id:product_id".
+     * Reserved (pending outbound) quantities, keyed "branch_id:product_id".
      *
      * "Reserved" = quantity_requested on transfer orders that are
      * still Requested or Approved (not yet shipped).
@@ -481,7 +296,7 @@ class ReorderPointService
     }
 
     /**
-     * All incoming quantities in one query, keyed "to_branch_id:product_id".
+     * Incoming quantities, keyed "to_branch_id:product_id".
      *
      * "Incoming" = stock on transfers headed to a branch that have been
      * requested, approved or shipped, but not yet received.
@@ -507,8 +322,11 @@ class ReorderPointService
     }
 
     /**
-     * All route lead times in two queries (shipped + received),
-     * keyed "from_branch_id:to_branch_id".
+     * Average transfer time per route, keyed "from_branch_id:to_branch_id".
+     * Uses two queries (shipped times + received times).
+     *
+     * Only completed transfers count, and routes with fewer than 5 of them
+     * are left out, so the caller falls back to the default lead time.
      */
     private function bulkLeadTimes(): array
     {
@@ -531,7 +349,7 @@ class ReorderPointService
         // Index received rows for quick lookup.
         $receivedByOrder = $receivedRows->keyBy('transfer_order_id');
 
-        // Pair shipped ↔ received, group durations by route.
+        // Pair each shipped row with its received row, grouped by route.
         $routeDurations = [];
 
         foreach ($shippedRows as $row) {
