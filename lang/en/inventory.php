@@ -8,6 +8,29 @@ return [
         'reports' => 'Reports',
         'settings' => 'Settings',
     ],
+    'dashboard' => [
+        'title' => 'Dashboard',
+        'all_branches' => 'All branches',
+        'reorder' => 'Reorder suggestions',
+        'reorder_hint' => 'Open, based on the last 30 days',
+        'to_receive' => 'Waiting to be received',
+        'to_receive_hint' => 'Transfers in transit',
+        'to_approve' => 'Awaiting your approval',
+        'to_approve_hint' => 'Requested by other users',
+        'movements' => 'Stock movements',
+        'last_7_days' => 'Last 7 days',
+        'active_transfers' => 'Active transfers',
+        'no_active_transfers' => 'No active transfers',
+        'from' => 'From',
+        'to' => 'To',
+        'status' => 'Status',
+        'requested' => 'Requested',
+    ],
+    'roles' => [
+        'admin' => 'Admin',
+        'branch_manager' => 'Branch manager',
+        'staff' => 'Staff',
+    ],
 
     // Resource labels
     'resource' => [
