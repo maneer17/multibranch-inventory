@@ -8,6 +8,29 @@ return [
         'reports' => 'التقارير',
         'settings' => 'الإعدادات',
     ],
+    'dashboard' => [
+        'title' => 'لوحة التحكم',
+        'all_branches' => 'كل الفروع',
+        'reorder' => 'اقتراحات إعادة الطلب',
+        'reorder_hint' => 'مفتوحة، بناءً على آخر 30 يومًا',
+        'to_receive' => 'بانتظار الاستلام',
+        'to_receive_hint' => 'تحويلات قيد الشحن',
+        'to_approve' => 'بانتظار موافقتك',
+        'to_approve_hint' => 'طلبها مستخدمون آخرون',
+        'movements' => 'حركات المخزون',
+        'last_7_days' => 'آخر 7 أيام',
+        'active_transfers' => 'التحويلات النشطة',
+        'no_active_transfers' => 'لا توجد تحويلات نشطة',
+        'from' => 'من',
+        'to' => 'إلى',
+        'status' => 'الحالة',
+        'requested' => 'تاريخ الطلب',
+    ],
+    'roles' => [
+        'admin' => 'مدير النظام',
+        'branch_manager' => 'مدير فرع',
+        'staff' => 'موظف',
+    ],
 
     // تسميات الموارد
     'resource' => [
